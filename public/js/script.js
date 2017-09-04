@@ -190,66 +190,7 @@ var proto = {
 	_unmount: _unmount
 };
 
-var template$1 = (function () {
-return {
-    data () {
-        return {
-            name: ''
-        };
-    }
-};
-}());
-
-function create_main_fragment$1 ( state, component ) {
-	var div, text;
-
-	return {
-		create: function () {
-			div = createElement( 'div' );
-			text = createText( "XXX" );
-		},
-
-		mount: function ( target, anchor ) {
-			insertNode( div, target, anchor );
-			appendNode( text, div );
-		},
-
-		update: noop,
-
-		unmount: function () {
-			detachNode( div );
-		},
-
-		destroy: noop
-	};
-}
-
-function Selection ( options ) {
-	this.options = options;
-	this._state = assign( template$1.data(), options.data );
-
-	this._observers = {
-		pre: Object.create( null ),
-		post: Object.create( null )
-	};
-
-	this._handlers = Object.create( null );
-
-	this._root = options._root || this;
-	this._yield = options._yield;
-	this._bind = options._bind;
-
-	this._fragment = create_main_fragment$1( this._state, this );
-
-	if ( options.target ) {
-		this._fragment.create();
-		this._fragment.mount( options.target, options.anchor || null );
-	}
-}
-
-assign( Selection.prototype, proto );
-
-var template$3 = (function () {
+var template$2 = (function () {
 return {
     data () {
         return {
@@ -275,7 +216,7 @@ function add_css () {
 	appendNode( style, document.head );
 }
 
-function create_main_fragment$3 ( state, component ) {
+function create_main_fragment$2 ( state, component ) {
 	var div, text_value = state.item.name, text;
 
 	function click_handler ( event ) {
@@ -318,7 +259,7 @@ function create_main_fragment$3 ( state, component ) {
 
 function ListItem ( options ) {
 	this.options = options;
-	this._state = assign( template$3.data(), options.data );
+	this._state = assign( template$2.data(), options.data );
 
 	this._observers = {
 		pre: Object.create( null ),
@@ -333,7 +274,7 @@ function ListItem ( options ) {
 
 	if ( !document.getElementById( 'svelte-1872953346-style' ) ) add_css();
 
-	this._fragment = create_main_fragment$3( this._state, this );
+	this._fragment = create_main_fragment$2( this._state, this );
 
 	if ( options.target ) {
 		this._fragment.create();
@@ -341,9 +282,9 @@ function ListItem ( options ) {
 	}
 }
 
-assign( ListItem.prototype, template$3.methods, proto );
+assign( ListItem.prototype, template$2.methods, proto );
 
-var template$2 = (function () {
+var template$1 = (function () {
 return {
     data () {
         return {
@@ -358,7 +299,7 @@ return {
 };
 }());
 
-function create_main_fragment$2 ( state, component ) {
+function create_main_fragment$1 ( state, component ) {
 	var div;
 
 	var each_block_value = state.list;
@@ -463,7 +404,7 @@ function create_each_block ( state, each_block_value, item, item_index, componen
 
 function List ( options ) {
 	this.options = options;
-	this._state = assign( template$2.data(), options.data );
+	this._state = assign( template$1.data(), options.data );
 
 	this._observers = {
 		pre: Object.create( null ),
@@ -482,7 +423,7 @@ function List ( options ) {
 		this._aftercreate = [];
 	}
 
-	this._fragment = create_main_fragment$2( this._state, this );
+	this._fragment = create_main_fragment$1( this._state, this );
 
 	if ( options.target ) {
 		this._fragment.create();
@@ -496,7 +437,7 @@ function List ( options ) {
 	}
 }
 
-assign( List.prototype, template$2.methods, proto );
+assign( List.prototype, template$1.methods, proto );
 
 var template = (function () {
 return {
@@ -531,7 +472,7 @@ function create_main_fragment ( state, component ) {
 			div = createElement( 'div' );
 			h1 = createElement( 'h1' );
 			text = createText( state.message );
-			text_1 = createText( "\n    " );
+			text_1 = createText( "\n    \n    " );
 			list._fragment.create();
 		},
 
@@ -610,3 +551,4 @@ const app = new App({
 app.on('select', event => {
     app.set({ message: 'Clicked item ' + event.item.name });
 });
+//# sourceMappingURL=script.js.map

@@ -12,9 +12,12 @@ let plugins = [
 ];
 
 export default {
-    entry: 'ui/main.js',
-    dest: 'public/js/script.js',
-    format: 'es',
-    plugins,
-    sourceMap: false
+    input: 'ui/main.js',
+    output: {
+        file: 'public/js/script.js',
+        format: 'es',
+        name: 'App',
+        sourcemap: true
+    },
+    plugins
 }
