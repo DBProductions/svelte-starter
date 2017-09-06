@@ -1,11 +1,17 @@
 <div>
-    {{#each list as item}}
-        <div>
+    <ul>
+        {{#each list as item}}
             <ListItem item="{{item}}"
-                      on:select="select(event)">
-        </div>
-    {{/each}}
+                      on:select="select(event)" />
+        {{/each}}
+    </ul>
 </div>
+
+<style>
+ul {
+    list-style: none;
+}
+</style>
 
 <script type="text/javascript">
 import ListItem from './ListItem.svelte';

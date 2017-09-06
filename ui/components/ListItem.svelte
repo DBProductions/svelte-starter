@@ -1,12 +1,14 @@
-<div on:click="select(item)">
+<li on:click="select(item)">
     {{item.name}}
-</div>
+</li>
 
 <style>
-div {
+li {
     border: 1px solid #ccc;
     margin-bottom: 3px;
     padding: 7px;
+    width: 70%;
+    font-size: 14pt;
     cursor: pointer;
 }
 </style>

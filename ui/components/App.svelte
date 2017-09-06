@@ -1,11 +1,11 @@
 <div>
-    <h1>{{message}}</h1>
-    
+    <Headline message="{{message}}" />
     <List list="{{list}}"
-          on:select="select(event)">
+          on:select="select(event)" />
 </div>
 
 <script type="text/javascript">
+import Headline from './Headline.svelte';
 import List from './List.svelte';
 
 export default {
@@ -21,6 +21,7 @@ export default {
         }
     },
     components: {
+        Headline,
         List
     }
 };
