@@ -11,6 +11,9 @@ li {
     font-size: 14pt;
     cursor: pointer;
 }
+li:hover {
+    background-color: #eee;
+}
 </style>
 
 <script type="text/javascript">

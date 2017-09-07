@@ -14,3 +14,10 @@ const app = new App({
 app.on('select', event => {
     app.set({message: 'Clicked item ' + event.item.name})
 });
+
+app.on('input', event => {
+    app.set({result: ''})
+    if (event.input) {
+       app.set({result: 'User typed: ' + event.input});
+    }
+});

@@ -11,9 +11,6 @@ Starter repository for the magical disappearing UI framework.
 ## Compile
 
     $ npm run compile
-
-## Watch
-
     $ rollup -c --watch
 
 ## Browse
