@@ -3,6 +3,19 @@
 Starter repository for the magical disappearing UI framework.  
 [Svelte Guide](https://svelte.technology/guide)  
 
+This starter repository is only a simple example!  
+No generator or guide how to use Svelte or how to organize your code.  
+
+Some basic components are defined and wrapped in a main component.  
+
+    App
+        - Headline
+        - List
+            - ListItem
+        - ModalDialog
+            - Modal
+        - UserInput
+
 ## Installation
 
     $ npm install -g rollup

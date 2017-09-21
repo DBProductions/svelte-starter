@@ -27,6 +27,8 @@ export default {
             showModal: false
         }
     },
-	components: { Modal }
+	components: {
+		Modal
+	}
 };
 </script>
