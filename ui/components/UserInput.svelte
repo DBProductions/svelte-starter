@@ -1,13 +1,14 @@
-<input type="text" bind:value="userInput" on:keyup="keypress()"> {{userInput}}
+<div>
+    <input type="text" bind:value="userInput" on:keyup="keypress()"> {{userInput}}
 
-{{#if result}}
-    <div>{{result}}</div>
-{{/if}}
+    {{#if result}}
+        <div>{{result}}</div>
+    {{/if}}
+</div>
 
 <style>
 input {
     border-radius: 3px 3px 3px 3px;
-    margin-left: 40px;
     margin-right: 20px;
     font-size: 12pt;
 }

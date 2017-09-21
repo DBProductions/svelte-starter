@@ -1,5 +1,5 @@
 <li on:click="select(item)">
-    {{item.name}}
+    {{item.name}} - <small>{{item.url}}</small>
 </li>
 
 <style>

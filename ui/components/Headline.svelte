@@ -1,9 +1,15 @@
-<h1>{{message}}</h1>
+<h1 class="headline">
+    {{message}} <small>{{itemId}}</small>
+</h1>
 
 <style>
-h1 {
+h1.headline {
     margin-left: 30px;
     font-size: 24pt;
+}
+h1.headline > small {
+    font-size: 12pt;
+    color: #bbb;
 }
 </style>
 
@@ -11,7 +17,8 @@ h1 {
 export default {
     data () {
         return {
-            message: "Nothing clicked"
+            message: "Nothing clicked",
+            itemId: ""
         };
     }
 };
