@@ -22,10 +22,10 @@ import UserInput from './UserInput.svelte';
 export default {
     data () {
         return {
-            message: "Nothing clicked",
-            itemId: "",
-            userInput: "",
-            result: "",
+            message: 'Nothing clicked',
+            itemId: '',
+            userInput: '',
+            result: '',
             list: [],
             showModal: false
         };

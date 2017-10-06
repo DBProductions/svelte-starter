@@ -1,8 +1,7 @@
 <div>
-    <input type="text" bind:value="userInput" on:keyup="keypress()"> {{userInput}}
-
+    Two-way binding <input type="text" bind:value="userInput" on:keyup="keypress()"> {{userInput}}
     {{#if result}}
-        <div>{{result}}</div>
+        <div>{{{result}}}</div>
     {{/if}}
 </div>
 
@@ -23,8 +22,8 @@ div {
 export default {
     data () {
         return {
-            userInput: "",
-            result: ""
+            userInput: '',
+            result: ''
         };
     },
     methods: {

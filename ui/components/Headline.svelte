@@ -17,8 +17,8 @@ h1.headline > small {
 export default {
     data () {
         return {
-            message: "Nothing clicked",
-            itemId: ""
+            message: 'Nothing clicked',
+            itemId: ''
         };
     }
 };

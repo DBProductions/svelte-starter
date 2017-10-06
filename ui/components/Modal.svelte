@@ -1,7 +1,6 @@
-<div class="modal-background" on:click="destroy()"></div>
+<div class="modal-background" on:click="close()"></div>
 <div class="modal">
 	{{yield}}
-    <button class="btn" on:click="destroy()">Close</button>
 </div>
 
 <style>
@@ -26,3 +25,13 @@ div.modal {
 	text-align: center;
 }
 </style>
+
+<script type="text/javascript">
+export default {
+	methods: {
+        close () {
+            this.fire('close');
+        }
+    }
+};
+</script>

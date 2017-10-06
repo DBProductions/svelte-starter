@@ -14,18 +14,20 @@ const app = new App({
 });
 /**
  * listen to events
+ * 'select' clicking a list item set the headline
+ * 'input' set result from user input
  */
 app.on('select', event => {
     app.set({
-        message: 'Clicked item ' + event.item.name,
-        itemId: 'Id:' + event.item.id
+        message: `Clicked item ${event.item.name}`,
+        itemId: `Id: ${event.item.id}`
     });
 });
 app.on('input', event => {
     app.set({result: ''})
     if (event.input) {
        app.set({
-           result: 'User typed: ' + event.input
+           result: `User typed <small>(${event.input.length} chars)</small>: ${event.input}`
        });
     }
 });
