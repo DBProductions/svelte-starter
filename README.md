@@ -2,6 +2,7 @@
 
 Starter repository for the magical disappearing UI framework.  
 [Svelte Guide](https://svelte.technology/guide)  
+[Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
 
 This starter repository is only a simple example!  
 No generator or guide how to use Svelte or how to organize your code.  

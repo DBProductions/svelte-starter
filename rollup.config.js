@@ -7,7 +7,11 @@ let plugins = [
         plugins: ['external-helpers', 'transform-object-rest-spread']
     }),
     svelte({
-        include: 'ui/components/**.svelte'
+        include: 'ui/components/**.svelte',
+        css: css => {
+            css.write('public/css/main.css')
+        },
+        cascade: false
     }),
 ];
 
