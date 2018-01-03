@@ -2,7 +2,7 @@
 
 Starter repository for the magical disappearing UI framework.  
 [Svelte Guide](https://svelte.technology/guide)  
-[Svelte Transitions](https://github.com/sveltejs/svelte-transitions)
+[Svelte Transitions](https://github.com/sveltejs/svelte-transitions)  
 [Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
 
 This starter repository is only a simple example!  
