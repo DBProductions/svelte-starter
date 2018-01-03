@@ -8,6 +8,8 @@
     <ModalDialog showModal="{{showModal}}"
                  headline="{{headline}}" />
 
+    <Transitions />
+
     <UserInput userInput="{{userInput}}"
                result="{{result}}"
                on:input="input(event)" />
@@ -16,6 +18,7 @@
 <script type="text/javascript">
 import Headline from './Headline.svelte';
 import List from './List.svelte';
+import Transitions from './Transitions.svelte';
 import ModalDialog from './ModalDialog.svelte';
 import UserInput from './UserInput.svelte';
 
@@ -41,6 +44,7 @@ export default {
     components: {
         Headline,
         List,
+        Transitions,
         ModalDialog,
         UserInput
     }
