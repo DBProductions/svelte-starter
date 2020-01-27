@@ -1,11 +1,13 @@
 # svelte-starter
 
+Use verion 3.0.0 of Svelte.  
+
 Starter repository for the magical disappearing UI framework.  
-[Svelte Guide](https://svelte.technology/guide)  
-[Svelte Transitions](https://github.com/sveltejs/svelte-transitions)  
+[Svelte Tutorial](https://svelte.dev/tutorial/basics)  
+[Svelte Template](https://github.com/sveltejs/template)    
 [Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
 
-This starter repository is only a simple example!  
+This starter repository is only a simple example, the project template got adjusted!  
 No generator or guide how to use Svelte or how to organize your code.  
 
 Some basic components are defined and wrapped in a main component.  
@@ -15,23 +17,22 @@ Some basic components are defined and wrapped in a main component.
         - List
             - ListItem
         - Transitions
-        - ModalDialog
+        - ModalDialog/ModalForm
             - Modal
         - UserInput
 
 ## Installation
 
-    $ npm install -g rollup
-    $ npm install
+    $ npm i
 
-## Compile
+## Run or build
 
-    $ npm run compile
-    $ rollup -c --watch
+    $ npm run dev
+    $ npm run build
 
 ## Browse
 
-Open `public/index.html` in your browser to see the result.
+Navigate to [localhost:5000](http://localhost:5000).
 
 ## Feedback
 Star this repo if you found it useful. Use the github issue tracker to give feedback on this repo.
