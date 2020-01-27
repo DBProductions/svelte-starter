@@ -1,25 +1,30 @@
 <script>
+import { fade } from 'svelte/transition';
 import { createEventDispatcher, onDestroy } from 'svelte';
 
+export let modalForm = false;
+
 const dispatch = createEventDispatcher();
+
+const send = () => dispatch('sendForm');
 const close = () => dispatch('close');
 
 let modal;
 
 const handle_keydown = e => {
   if (e.key === 'Escape') {
-	close();
-	return;
+	  close();
+	  return;
   }
   if (e.key === 'Tab') {
-	const nodes = modal.querySelectorAll('*');
-	const tabbable = Array.from(nodes).filter(n => n.tabIndex >= 0);
-	let index = tabbable.indexOf(document.activeElement);
-	if (index === -1 && e.shiftKey) index = 0;
-	index += tabbable.length + (e.shiftKey ? -1 : 1);
-	index %= tabbable.length;
-	tabbable[index].focus();
-	e.preventDefault();
+	  const nodes = modal.querySelectorAll('*');
+	  const tabbable = Array.from(nodes).filter(n => n.tabIndex >= 0);
+	  let index = tabbable.indexOf(document.activeElement);
+	  if (index === -1 && e.shiftKey) index = 0;
+	  index += tabbable.length + (e.shiftKey ? -1 : 1);
+	  index %= tabbable.length;
+	  tabbable[index].focus();
+	  e.preventDefault();
   }
 };
 
@@ -27,7 +32,7 @@ const previously_focused = typeof document !== 'undefined' && document.activeEle
 
 if (previously_focused) {
   onDestroy(() => {
-	previously_focused.focus();
+	  previously_focused.focus();
   });
 }
 </script>
@@ -36,11 +41,14 @@ if (previously_focused) {
 
 <div class="modal-background" on:click={close}></div>
 
-<div class="modal" role="dialog" aria-modal="true" bind:this={modal}>
+<div class="modal" role="dialog" aria-modal="true" bind:this={modal} transition:fade="{{ duration: 300 }}">
   <slot name="header"></slot>
   <slot></slot>
   <!-- svelte-ignore a11y-autofocus -->
-  <button autofocus on:click={close}>Close Modal</button>
+  {#if modalForm}
+    <button on:click={send}>Send</button>
+  {/if}
+  <button on:click={close}>Close</button>
 </div>
 
 <style>
@@ -67,7 +75,7 @@ if (previously_focused) {
   text-align: center;
 }
 button {
-  display: block;
-  margin: 0 auto;
+  display: inline-block;
+  margin-right: 5px;
 }
 </style>

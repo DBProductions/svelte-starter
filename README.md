@@ -1,6 +1,6 @@
 # svelte-starter
 
-Use verion 3.0.0 of Svelte.  
+Works with verion 3.0.0 of Svelte.  
 
 Starter repository for the magical disappearing UI framework.  
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  

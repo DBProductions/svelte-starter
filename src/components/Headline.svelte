@@ -3,9 +3,7 @@ export let message = '';
 export let itemId = '';
 </script>
 
-<h1>
-    {message} <small>{itemId}</small>
-</h1>
+<h1>{message} <small>{itemId}</small></h1>
 
 <style>
 h1 {  

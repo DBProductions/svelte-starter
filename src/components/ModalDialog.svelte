@@ -11,6 +11,6 @@ export let body = '';
 {#if showModal}
   <Modal on:close="{() => showModal = false}">
     <h2 slot="header">{headline}</h2>
-	  <p>{body}</p>
+	  <p>{@html body}</p>
   </Modal>
 {/if}

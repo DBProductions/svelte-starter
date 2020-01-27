@@ -1,6 +1,7 @@
 <script>
 import { createEventDispatcher } from 'svelte';
 import ListItem from './ListItem.svelte';
+
 export let list = [];
 
 const dispatch = createEventDispatcher();

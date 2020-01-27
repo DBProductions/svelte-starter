@@ -9,32 +9,42 @@ import UserInput from './components/UserInput.svelte';
 export let message = 'Svelte-Starter';
 export let itemId = '';
 export let list = [];
-export let showModal = false;
 export let userInput = '';
 export let result = '';
 
-function listSelection(event) {
+const modalDialog = {
+	showModal: false,
+	headline: 'Modal',
+	body: 'Modal body text.<br>Plus this.'
+};
+
+const listSelection = (event) => {
   message = `Clicked item ${event.detail.item.name}`;
   itemId = `Id: ${event.detail.item.id}`;
 }
-function handleInput(event) {
+
+const handleInput = (event) => {
   console.log(event.detail.input);
+}
+
+const sendForm = (event) => {
+  console.log(event.detail);
 }
 </script>
 
 <div id="container">
   <div>
-	<Headline message="{message}" itemId="{itemId}" />
+	  <Headline message="{message}" itemId="{itemId}" />
   </div>
   <div id="left-column">
-	<List list="{list}" on:select="{listSelection}" />
-	<Transitions />
-	<UserInput userInput="{userInput}" result="{result}" on:input={handleInput} />
+	  <List list="{list}" on:select="{listSelection}" />
+	  <Transitions />
+	  <UserInput userInput="{userInput}" result="{result}" on:input={handleInput} />
   </div>
   <div id="right-column">
-    <ModalDialog showModal="{showModal}" body="Modal body text." />
-	  <ModalForm showModal="{showModal}" />
-	  <ModalForm showModal="{showModal}" inputValue="Name" />
+    <ModalDialog {...modalDialog} />
+	  <ModalForm on:sendForm="{sendForm}" />
+	  <ModalForm valueEmail="svelte@example.com" on:sendForm="{sendForm}" />
   </div>
 </div>
 

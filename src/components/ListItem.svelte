@@ -1,8 +1,9 @@
 <script>
 import { createEventDispatcher } from 'svelte';
-const dispatch = createEventDispatcher();
 
 export let item = {id: 0, name: ''};
+
+const dispatch = createEventDispatcher();
 
 const select = () => {
   dispatch('select', {item: item});

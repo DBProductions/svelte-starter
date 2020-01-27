@@ -1,9 +1,9 @@
 #container.svelte-tudcgf{height:90%;width:100%}#left-column.svelte-tudcgf{float:left;width:70%;height:inherit}#right-column.svelte-tudcgf{float:left;width:30%;display:block;height:inherit}
-h1.svelte-165u9gw.svelte-165u9gw{font-size:24pt}h1.svelte-165u9gw>small.svelte-165u9gw{font-size:12pt;color:#bbb}
 ul.svelte-igo2yg{list-style:none;margin:0px;padding:0px}
-input.svelte-sng07e{border-radius:3px 3px 3px 3px;margin-left:5px;margin-right:20px;font-size:12pt}div.svelte-sng07e{margin-top:10px;font-size:12pt}
-.cbContainer.svelte-1mpzlxz.svelte-1mpzlxz{margin-top:10px;font-size:14pt}.cbContainer.svelte-1mpzlxz>span.svelte-1mpzlxz{margin-left:20px;margin-right:20px}input.trigger.svelte-1mpzlxz.svelte-1mpzlxz{font-size:24pt}
-.modal-background.svelte-1ync6ib{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3)}.modal.svelte-1ync6ib{position:absolute;left:50%;top:50%;width:calc(100vw - 4em);max-width:32em;max-height:calc(100vh - 4em);overflow:auto;transform:translate(-50%,-50%);padding:1em;border-radius:0.2em;background:white;text-align:center}button.svelte-1ync6ib{display:block;margin:0 auto}
+.cbContainer.svelte-dxvovz.svelte-dxvovz{margin-top:10px;font-size:14pt}.cbContainer.svelte-dxvovz>span.svelte-dxvovz{margin-left:20px;margin-right:20px}
+h1.svelte-165u9gw.svelte-165u9gw{font-size:24pt}h1.svelte-165u9gw>small.svelte-165u9gw{font-size:12pt;color:#bbb}
+input[type='text'].svelte-164du1w{border-radius:3px 3px 3px 3px;margin-left:5px;margin-right:20px;font-size:12pt}div.svelte-164du1w{margin-top:10px;font-size:12pt}
+.modal-background.svelte-1qb366i{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3)}.modal.svelte-1qb366i{position:absolute;left:50%;top:50%;width:calc(100vw - 4em);max-width:32em;max-height:calc(100vh - 4em);overflow:auto;transform:translate(-50%,-50%);padding:1em;border-radius:0.2em;background:white;text-align:center}button.svelte-1qb366i{display:inline-block;margin-right:5px}
 li.svelte-1g8u4r0{border:1px solid #ccc;border-radius:3px 3px 3px 3px;margin-bottom:3px;padding:7px;width:70%;font-size:14pt;cursor:pointer}li.svelte-1g8u4r0:hover{background-color:#eee}
 
 /*# sourceMappingURL=bundle.css.map */

@@ -1,9 +1,10 @@
 <script>
 import { createEventDispatcher } from 'svelte';
-const dispatch = createEventDispatcher();
     
 export let userInput = '';
 export let result = '';
+
+const dispatch = createEventDispatcher();
 
 const keypress = () => {
   dispatch('input', {'input': userInput});
@@ -16,7 +17,7 @@ const keypress = () => {
 </div>
 
 <style>
-input {
+input[type='text'] {
   border-radius: 3px 3px 3px 3px;
   margin-left: 5px;
   margin-right: 20px;
