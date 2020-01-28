@@ -11,7 +11,7 @@ const close = () => dispatch('close');
 
 let modal;
 
-const handle_keydown = e => {
+const handleKeydown = e => {
   if (e.key === 'Escape') {
 	  close();
 	  return;
@@ -37,7 +37,7 @@ if (previously_focused) {
 }
 </script>
 
-<svelte:window on:keydown={handle_keydown}/>
+<svelte:window on:keydown={handleKeydown}/>
 
 <div class="modal-background" on:click={close}></div>
 

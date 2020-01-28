@@ -2,6 +2,7 @@
 import { createEventDispatcher } from 'svelte';
 
 export let item = {id: 0, name: ''};
+export let currentItem = 0;
 
 const dispatch = createEventDispatcher();
 
@@ -10,21 +11,24 @@ const select = () => {
 };
 </script>
 
-<li on:click="{select(item)}">
+<li class:active="{currentItem === item.id}" on:click="{select(item)}">
   {item.name} - <small>{item.url}</small>
 </li>
 
 <style>
 li {
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
   border-radius: 3px 3px 3px 3px;
   margin-bottom: 3px;
   padding: 7px;
-  width: 70%;
-  font-size: 14pt;
+  width: 60%;
+  font-size: 12pt;
   cursor: pointer;
 }
+.active {
+	background-color: #bbb;
+}
 li:hover {
-  background-color: #eee;
+  border: 1px solid #aaa;
 }
 </style>

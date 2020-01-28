@@ -20,6 +20,7 @@ Some basic components are defined and wrapped in a main component.
         - ModalDialog/ModalForm
             - Modal
         - UserInput
+        - Contenteditable
 
 ## Installation
 

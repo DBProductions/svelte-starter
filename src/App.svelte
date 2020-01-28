@@ -5,6 +5,7 @@ import Transitions from './components/Transitions.svelte';
 import ModalDialog from './components/ModalDialog.svelte';
 import ModalForm from './components/ModalForm.svelte';
 import UserInput from './components/UserInput.svelte';
+import Contenteditable from './components/Contenteditable.svelte';
 
 export let message = 'Svelte-Starter';
 export let itemId = '';
@@ -40,6 +41,7 @@ const sendForm = (event) => {
 	  <List list="{list}" on:select="{listSelection}" />
 	  <Transitions />
 	  <UserInput userInput="{userInput}" result="{result}" on:input={handleInput} />
+    <Contenteditable on:edited={handleInput} />
   </div>
   <div id="right-column">
     <ModalDialog {...modalDialog} />
