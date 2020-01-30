@@ -1,4 +1,6 @@
 <script>
+import { userActivity, elapsed } from './stores.js';
+
 import Headline from './components/Headline.svelte';
 import List from './components/List.svelte';
 import Transitions from './components/Transitions.svelte';
@@ -31,6 +33,10 @@ const handleInput = (event) => {
 const sendForm = (event) => {
   console.log(event.detail);
 }
+
+const handleEvent = (event) => {
+  userActivity(event);  
+};
 </script>
 
 <div id="container">
@@ -47,8 +53,12 @@ const sendForm = (event) => {
     <ModalDialog {...modalDialog} />
 	  <ModalForm on:sendForm="{sendForm}" />
 	  <ModalForm valueEmail="svelte@example.com" on:sendForm="{sendForm}" />
+
+    <div>The user is inactive for {$elapsed} {$elapsed === 1 ? 'second' : 'seconds'}</div>
   </div>
 </div>
+
+<svelte:window on:mousemove={handleEvent} on:click={handleEvent} on:keydown={handleEvent}/>
 
 <style>
 #container {
@@ -57,7 +67,7 @@ const sendForm = (event) => {
 }
 #left-column {
   float: left;
-  width: 70%;
+  width: 60%;
   height: inherit;
 }
 #right-column {

@@ -31,6 +31,21 @@ var app = (function () {
     function safe_not_equal(a, b) {
         return a != a ? b == b : a !== b || ((a && typeof a === 'object') || typeof a === 'function');
     }
+    function validate_store(store, name) {
+        if (store != null && typeof store.subscribe !== 'function') {
+            throw new Error(`'${name}' is not a store with a 'subscribe' method`);
+        }
+    }
+    function subscribe(store, ...callbacks) {
+        if (store == null) {
+            return noop;
+        }
+        const unsub = store.subscribe(...callbacks);
+        return unsub.unsubscribe ? () => unsub.unsubscribe() : unsub;
+    }
+    function component_subscribe(component, store, callback) {
+        component.$$.on_destroy.push(subscribe(store, callback));
+    }
     function create_slot(definition, ctx, $$scope, fn) {
         if (definition) {
             const slot_ctx = get_slot_context(definition, ctx, $$scope, fn);
@@ -775,6 +790,130 @@ var app = (function () {
             };
         }
     }
+
+    const subscriber_queue = [];
+    /**
+     * Creates a `Readable` store that allows reading by subscription.
+     * @param value initial value
+     * @param {StartStopNotifier}start start and stop notifications for subscriptions
+     */
+    function readable(value, start) {
+        return {
+            subscribe: writable(value, start).subscribe,
+        };
+    }
+    /**
+     * Create a `Writable` store that allows both updating and reading by subscription.
+     * @param {*=}value initial value
+     * @param {StartStopNotifier=}start start and stop notifications for subscriptions
+     */
+    function writable(value, start = noop) {
+        let stop;
+        const subscribers = [];
+        function set(new_value) {
+            if (safe_not_equal(value, new_value)) {
+                value = new_value;
+                if (stop) { // store is ready
+                    const run_queue = !subscriber_queue.length;
+                    for (let i = 0; i < subscribers.length; i += 1) {
+                        const s = subscribers[i];
+                        s[1]();
+                        subscriber_queue.push(s, value);
+                    }
+                    if (run_queue) {
+                        for (let i = 0; i < subscriber_queue.length; i += 2) {
+                            subscriber_queue[i][0](subscriber_queue[i + 1]);
+                        }
+                        subscriber_queue.length = 0;
+                    }
+                }
+            }
+        }
+        function update(fn) {
+            set(fn(value));
+        }
+        function subscribe(run, invalidate = noop) {
+            const subscriber = [run, invalidate];
+            subscribers.push(subscriber);
+            if (subscribers.length === 1) {
+                stop = start(set) || noop;
+            }
+            run(value);
+            return () => {
+                const index = subscribers.indexOf(subscriber);
+                if (index !== -1) {
+                    subscribers.splice(index, 1);
+                }
+                if (subscribers.length === 0) {
+                    stop();
+                    stop = null;
+                }
+            };
+        }
+        return { set, update, subscribe };
+    }
+    function derived(stores, fn, initial_value) {
+        const single = !Array.isArray(stores);
+        const stores_array = single
+            ? [stores]
+            : stores;
+        const auto = fn.length < 2;
+        return readable(initial_value, (set) => {
+            let inited = false;
+            const values = [];
+            let pending = 0;
+            let cleanup = noop;
+            const sync = () => {
+                if (pending) {
+                    return;
+                }
+                cleanup();
+                const result = fn(single ? values[0] : values, set);
+                if (auto) {
+                    set(result);
+                }
+                else {
+                    cleanup = is_function(result) ? result : noop;
+                }
+            };
+            const unsubscribers = stores_array.map((store, i) => subscribe(store, (value) => {
+                values[i] = value;
+                pending &= ~(1 << i);
+                if (inited) {
+                    sync();
+                }
+            }, () => {
+                pending |= (1 << i);
+            }));
+            inited = true;
+            sync();
+            return function stop() {
+                run_all(unsubscribers);
+                cleanup();
+            };
+        });
+    }
+
+    const time = readable(new Date(), function start(set) {
+    	const interval = setInterval(() => {
+    		set(new Date());
+    	}, 1000);
+
+    	return function stop() {
+    		clearInterval(interval);
+    	};
+    });
+
+    let start = new Date();
+
+    const userActivity = (event) => {
+      start = new Date();
+    };
+
+    const elapsed = derived(
+    	time,
+    	$time => Math.round(($time - start) / 1000)
+    );
 
     /* src/components/Headline.svelte generated by Svelte v3.18.0 */
 
@@ -2792,7 +2931,7 @@ var app = (function () {
     const file$9 = "src/App.svelte";
 
     function create_fragment$9(ctx) {
-    	let div3;
+    	let div4;
     	let div0;
     	let t0;
     	let div1;
@@ -2800,10 +2939,18 @@ var app = (function () {
     	let t2;
     	let t3;
     	let t4;
-    	let div2;
+    	let div3;
     	let t5;
     	let t6;
+    	let t7;
+    	let div2;
+    	let t8;
+    	let t9;
+    	let t10;
+    	let t11_value = (/*$elapsed*/ ctx[5] === 1 ? "second" : "seconds") + "";
+    	let t11;
     	let current;
+    	let dispose;
 
     	const headline = new Headline({
     			props: {
@@ -2818,7 +2965,7 @@ var app = (function () {
     			$$inline: true
     		});
 
-    	list_1.$on("select", /*listSelection*/ ctx[6]);
+    	list_1.$on("select", /*listSelection*/ ctx[7]);
     	const transitions = new Transitions({ $$inline: true });
 
     	const userinput = new UserInput({
@@ -2829,10 +2976,10 @@ var app = (function () {
     			$$inline: true
     		});
 
-    	userinput.$on("input", /*handleInput*/ ctx[7]);
+    	userinput.$on("input", /*handleInput*/ ctx[8]);
     	const contenteditable = new Contenteditable({ $$inline: true });
-    	contenteditable.$on("edited", /*handleInput*/ ctx[7]);
-    	const modaldialog_spread_levels = [/*modalDialog*/ ctx[5]];
+    	contenteditable.$on("edited", /*handleInput*/ ctx[8]);
+    	const modaldialog_spread_levels = [/*modalDialog*/ ctx[6]];
     	let modaldialog_props = {};
 
     	for (let i = 0; i < modaldialog_spread_levels.length; i += 1) {
@@ -2841,18 +2988,18 @@ var app = (function () {
 
     	const modaldialog = new ModalDialog({ props: modaldialog_props, $$inline: true });
     	const modalform0 = new ModalForm({ $$inline: true });
-    	modalform0.$on("sendForm", /*sendForm*/ ctx[8]);
+    	modalform0.$on("sendForm", /*sendForm*/ ctx[9]);
 
     	const modalform1 = new ModalForm({
     			props: { valueEmail: "svelte@example.com" },
     			$$inline: true
     		});
 
-    	modalform1.$on("sendForm", /*sendForm*/ ctx[8]);
+    	modalform1.$on("sendForm", /*sendForm*/ ctx[9]);
 
     	const block = {
     		c: function create() {
-    			div3 = element("div");
+    			div4 = element("div");
     			div0 = element("div");
     			create_component(headline.$$.fragment);
     			t0 = space();
@@ -2865,32 +3012,39 @@ var app = (function () {
     			t3 = space();
     			create_component(contenteditable.$$.fragment);
     			t4 = space();
-    			div2 = element("div");
+    			div3 = element("div");
     			create_component(modaldialog.$$.fragment);
     			t5 = space();
     			create_component(modalform0.$$.fragment);
     			t6 = space();
     			create_component(modalform1.$$.fragment);
-    			add_location(div0, file$9, 36, 2, 945);
+    			t7 = space();
+    			div2 = element("div");
+    			t8 = text("The user is inactive for ");
+    			t9 = text(/*$elapsed*/ ctx[5]);
+    			t10 = space();
+    			t11 = text(t11_value);
+    			add_location(div0, file$9, 42, 2, 1061);
     			attr_dev(div1, "id", "left-column");
-    			attr_dev(div1, "class", "svelte-tudcgf");
-    			add_location(div1, file$9, 39, 2, 1016);
-    			attr_dev(div2, "id", "right-column");
-    			attr_dev(div2, "class", "svelte-tudcgf");
-    			add_location(div2, file$9, 45, 2, 1253);
-    			attr_dev(div3, "id", "container");
-    			attr_dev(div3, "class", "svelte-tudcgf");
-    			add_location(div3, file$9, 35, 0, 922);
+    			attr_dev(div1, "class", "svelte-160s9dc");
+    			add_location(div1, file$9, 45, 2, 1132);
+    			add_location(div2, file$9, 56, 4, 1551);
+    			attr_dev(div3, "id", "right-column");
+    			attr_dev(div3, "class", "svelte-160s9dc");
+    			add_location(div3, file$9, 51, 2, 1369);
+    			attr_dev(div4, "id", "container");
+    			attr_dev(div4, "class", "svelte-160s9dc");
+    			add_location(div4, file$9, 41, 0, 1038);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, div3, anchor);
-    			append_dev(div3, div0);
+    			insert_dev(target, div4, anchor);
+    			append_dev(div4, div0);
     			mount_component(headline, div0, null);
-    			append_dev(div3, t0);
-    			append_dev(div3, div1);
+    			append_dev(div4, t0);
+    			append_dev(div4, div1);
     			mount_component(list_1, div1, null);
     			append_dev(div1, t1);
     			mount_component(transitions, div1, null);
@@ -2898,14 +3052,26 @@ var app = (function () {
     			mount_component(userinput, div1, null);
     			append_dev(div1, t3);
     			mount_component(contenteditable, div1, null);
-    			append_dev(div3, t4);
+    			append_dev(div4, t4);
+    			append_dev(div4, div3);
+    			mount_component(modaldialog, div3, null);
+    			append_dev(div3, t5);
+    			mount_component(modalform0, div3, null);
+    			append_dev(div3, t6);
+    			mount_component(modalform1, div3, null);
+    			append_dev(div3, t7);
     			append_dev(div3, div2);
-    			mount_component(modaldialog, div2, null);
-    			append_dev(div2, t5);
-    			mount_component(modalform0, div2, null);
-    			append_dev(div2, t6);
-    			mount_component(modalform1, div2, null);
+    			append_dev(div2, t8);
+    			append_dev(div2, t9);
+    			append_dev(div2, t10);
+    			append_dev(div2, t11);
     			current = true;
+
+    			dispose = [
+    				listen_dev(window, "mousemove", /*handleEvent*/ ctx[10], false, false, false),
+    				listen_dev(window, "click", /*handleEvent*/ ctx[10], false, false, false),
+    				listen_dev(window, "keydown", /*handleEvent*/ ctx[10], false, false, false)
+    			];
     		},
     		p: function update(ctx, [dirty]) {
     			const headline_changes = {};
@@ -2920,11 +3086,13 @@ var app = (function () {
     			if (dirty & /*result*/ 16) userinput_changes.result = /*result*/ ctx[4];
     			userinput.$set(userinput_changes);
 
-    			const modaldialog_changes = (dirty & /*modalDialog*/ 32)
-    			? get_spread_update(modaldialog_spread_levels, [get_spread_object(/*modalDialog*/ ctx[5])])
+    			const modaldialog_changes = (dirty & /*modalDialog*/ 64)
+    			? get_spread_update(modaldialog_spread_levels, [get_spread_object(/*modalDialog*/ ctx[6])])
     			: {};
 
     			modaldialog.$set(modaldialog_changes);
+    			if (!current || dirty & /*$elapsed*/ 32) set_data_dev(t9, /*$elapsed*/ ctx[5]);
+    			if ((!current || dirty & /*$elapsed*/ 32) && t11_value !== (t11_value = (/*$elapsed*/ ctx[5] === 1 ? "second" : "seconds") + "")) set_data_dev(t11, t11_value);
     		},
     		i: function intro(local) {
     			if (current) return;
@@ -2950,7 +3118,7 @@ var app = (function () {
     			current = false;
     		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(div3);
+    			if (detaching) detach_dev(div4);
     			destroy_component(headline);
     			destroy_component(list_1);
     			destroy_component(transitions);
@@ -2959,6 +3127,7 @@ var app = (function () {
     			destroy_component(modaldialog);
     			destroy_component(modalform0);
     			destroy_component(modalform1);
+    			run_all(dispose);
     		}
     	};
 
@@ -2974,6 +3143,9 @@ var app = (function () {
     }
 
     function instance$9($$self, $$props, $$invalidate) {
+    	let $elapsed;
+    	validate_store(elapsed, "elapsed");
+    	component_subscribe($$self, elapsed, $$value => $$invalidate(5, $elapsed = $$value));
     	let { message = "Svelte-Starter" } = $$props;
     	let { itemId = "" } = $$props;
     	let { list = [] } = $$props;
@@ -2999,6 +3171,10 @@ var app = (function () {
     		console.log(event.detail);
     	};
 
+    	const handleEvent = event => {
+    		userActivity();
+    	};
+
     	const writable_props = ["message", "itemId", "list", "userInput", "result"];
 
     	Object.keys($$props).forEach(key => {
@@ -3014,7 +3190,14 @@ var app = (function () {
     	};
 
     	$$self.$capture_state = () => {
-    		return { message, itemId, list, userInput, result };
+    		return {
+    			message,
+    			itemId,
+    			list,
+    			userInput,
+    			result,
+    			$elapsed
+    		};
     	};
 
     	$$self.$inject_state = $$props => {
@@ -3023,6 +3206,7 @@ var app = (function () {
     		if ("list" in $$props) $$invalidate(2, list = $$props.list);
     		if ("userInput" in $$props) $$invalidate(3, userInput = $$props.userInput);
     		if ("result" in $$props) $$invalidate(4, result = $$props.result);
+    		if ("$elapsed" in $$props) elapsed.set($elapsed = $$props.$elapsed);
     	};
 
     	return [
@@ -3031,10 +3215,12 @@ var app = (function () {
     		list,
     		userInput,
     		result,
+    		$elapsed,
     		modalDialog,
     		listSelection,
     		handleInput,
-    		sendForm
+    		sendForm,
+    		handleEvent
     	];
     }
 
