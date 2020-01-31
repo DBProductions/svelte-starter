@@ -2,7 +2,7 @@
 
 Works with verion 3.0.0 of Svelte.  
 
-Starter repository for the magical disappearing UI framework.  
+Starter repository for the cybernetically enhanced web apps.  
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
 [Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
@@ -17,6 +17,7 @@ Some basic components are defined and wrapped in a main component.
         - List
             - ListItem
         - Transitions
+        - RadioBoxes
         - ModalDialog/ModalForm
             - Modal
         - UserInput
@@ -28,6 +29,10 @@ It's only an example to use a store and display the inactive time of a user and 
 ## Installation
 
     $ npm i
+
+## Format code
+
+    $ npmr run format
 
 ## Run or build
 

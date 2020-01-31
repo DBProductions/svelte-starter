@@ -1,13 +1,13 @@
 <script>
-import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher } from 'svelte'
 
-let content = 'This content is editable.';
+  let content = 'This content is editable.'
 
-const dispatch = createEventDispatcher();
+  const dispatch = createEventDispatcher()
 
-const keypress = () => {
-  dispatch('edited', {'input': content});
-}
+  const keypress = () => {
+    dispatch('edited', { input: content })
+  }
 </script>
 
-<div contenteditable="true" bind:textContent={content} on:keyup="{keypress}"></div>
+<div contenteditable="true" bind:textContent={content} on:keyup={keypress} />

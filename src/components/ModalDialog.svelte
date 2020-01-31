@@ -1,16 +1,18 @@
 <script>
-import Modal from './Modal.svelte';
+  import Modal from './Modal.svelte'
 
-export let showModal = false;
-export let headline = 'Modal';
-export let body = '';
+  export let showModal = false
+  export let headline = 'Modal'
+  export let body = ''
 </script>
 
-<button on:click="{() => showModal = true}">Modal</button>
+<button on:click={() => (showModal = true)}>Modal</button>
 
 {#if showModal}
-  <Modal on:close="{() => showModal = false}">
+  <Modal on:close={() => (showModal = false)}>
     <h2 slot="header">{headline}</h2>
-	  <p>{@html body}</p>
+    <p>
+      {@html body}
+    </p>
   </Modal>
 {/if}
