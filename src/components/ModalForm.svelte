@@ -5,40 +5,50 @@
   export let showModal = false
   export let modalForm = true
   export let headline = 'Modal'
-  export let valueEmail = ''
-  export let valuePW = ''
-  export let placeholderEmail = 'Email'
-  export let placeholderPW = 'Password'
+  export let valueName = ''
+  export let valueUrl = ''
+  export let placeholderName = 'Name'
+  export let placeholderUrl = 'URL'
 
   const dispatch = createEventDispatcher()
 
   const sendForm = () => {
-    dispatch('sendForm', { email: valueEmail, password: valuePW })
+    dispatch('sendForm', { name: valueName, url: valueUrl })
     showModal = false
+  }
+
+  const close = () => {
+    showModal = false
+    dispatch('close', {})
   }
 </script>
 
+<style>
+  input[type='text'] {
+    width: 90%;
+  }
+</style>
+
+<!--
 <button on:click={() => (showModal = true)}>Modal Form</button>
+-->
 
 {#if showModal}
-  <Modal
-    {modalForm}
-    on:close={() => (showModal = false)}
-    on:sendForm={sendForm}>
+  <Modal {modalForm} on:close={close} on:sendForm={sendForm}>
     <h2 slot="header">{headline}</h2>
     <div>
       <input
         type="text"
-        bind:value={valueEmail}
-        value={valueEmail}
-        placeholder={placeholderEmail} />
+        bind:value={valueName}
+        value={valueName}
+        placeholder={placeholderName} />
     </div>
     <div>
       <input
-        type="password"
-        bind:value={valuePW}
-        value={valuePW}
-        placeholder={placeholderPW} />
+        type="text"
+        bind:value={valueUrl}
+        value={valueUrl}
+        placeholder={placeholderUrl} />
     </div>
   </Modal>
 {/if}

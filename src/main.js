@@ -8,6 +8,14 @@ const app = new App({
       { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
       { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
     ],
+    table: {
+      header: ['Name', 'URL'],
+      entries: [
+        { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
+        { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
+        { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
+      ],
+    },
     modalDialog: {
       showModal: false,
       headline: 'Modal',

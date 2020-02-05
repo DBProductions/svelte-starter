@@ -1,6 +1,9 @@
 <script>
+  import { createEventDispatcher } from 'svelte'
+
   export let selections = {}
 
+  const dispatch = createEventDispatcher()
   let current = ''
   let information = '<p>Nothing to display.</p>'
 
@@ -8,6 +11,7 @@
     current = selector
     const item = selections.find(o => o.selector === selector)
     information = item.text
+    dispatch('select', { current })
   }
 </script>
 
@@ -18,7 +22,7 @@
     margin-bottom: 10px;
     padding: 3px;
     border-radius: 0 0 5px 0;
-    box-shadow: 2px 2px 2px #eee;
+    box-shadow: 2px 2px 3px #eee;
   }
   .selection-container > div:not(:first-child) {
     margin-left: 10px;

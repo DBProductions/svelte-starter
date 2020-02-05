@@ -6,9 +6,8 @@
 
   const dispatch = createEventDispatcher()
 
-  const select = () => {
-    dispatch('select', { item: item })
-  }
+  const select = () => dispatch('select', { item: item })
+  const edit = () => dispatch('edit', { item: item })
 </script>
 
 <style>
@@ -21,6 +20,10 @@
     font-size: 12pt;
     cursor: pointer;
   }
+  li span {
+    background-color: #aaa;
+    width: 90%;
+  }
   .active {
     background-color: #bbb;
   }
@@ -29,7 +32,12 @@
   }
 </style>
 
-<li class:active={currentItem === item.id} on:click={select(item)}>
-  {item.name} -
-  <small>{item.url}</small>
+<li class:active={currentItem === item.id}>
+  <div style="float:right;">
+    <buttton on:click={edit(item)}>Edit</buttton>
+  </div>
+  <div on:click={select(item)}>
+    {item.name} -
+    <small>{item.url}</small>
+  </div>
 </li>

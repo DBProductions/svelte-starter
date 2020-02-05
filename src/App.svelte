@@ -3,7 +3,7 @@
 
   import Headline from './components/Headline.svelte'
   import List from './components/List.svelte'
-  import Transitions from './components/Transitions.svelte'
+  import Table from './components/Table.svelte'
   import ModalDialog from './components/ModalDialog.svelte'
   import ModalForm from './components/ModalForm.svelte'
   import UserInput from './components/UserInput.svelte'
@@ -12,26 +12,61 @@
 
   export let message = 'Svelte-Starter'
   export let itemId = ''
+
   export let list = []
+  export let currentItem = 0
+
+  export let table = {}
+
   export let userInput = ''
+
   export let result = ''
   export let modalDialog = {}
   export let selections = {}
 
+  let selected = ''
+  let showFormModal = false
+  let valueName = ''
+  let valueUrl = ''
+
   const listSelection = event => {
     message = `Clicked item ${event.detail.item.name}`
     itemId = `Id: ${event.detail.item.id}`
+    selected = event.detail.item.name
+  }
+
+  const handleClickedRow = event => {
+    message = `Clicked item ${event.detail.name}`
+    itemId = `Id: ${event.detail.id}`
+    selected = event.detail.name
+    currentItem = event.detail.id
+  }
+
+  const edit = event => {
+    valueName = event.detail.item.name
+    valueUrl = event.detail.item.url
+    showFormModal = true
+    console.log(event.detail.item)
+  }
+
+  const closeModal = event => {
+    showFormModal = false
   }
 
   const handleInput = event => {
-    // console.log(event.detail.input);
+    console.log(event.detail.input)
   }
 
   const sendForm = event => {
-    // console.log(event.detail)
+    showFormModal = false
+    console.log(event.detail)
   }
 
   const handleEvent = event => {
+    console.log(event.detail)
+  }
+
+  const handleUserEvent = event => {
     userActivity(event)
   }
 </script>
@@ -70,17 +105,27 @@
   </div>
   <div class="columns">
     <div class="left-column">
-      <List {list} on:select={listSelection} />
-      <Transitions />
+      <List {list} {currentItem} on:select={listSelection} on:edit={edit} />
+
       <UserInput {userInput} {result} on:input={handleInput} />
+
       <Contenteditable on:edited={handleInput} />
     </div>
     <div class="right-column">
-      <RadioBoxes {selections} />
+      <Table {selected} data={table} on:clickedRow={handleClickedRow} />
 
-      <ModalDialog {...modalDialog} />
-      <ModalForm on:sendForm={sendForm} />
-      <ModalForm valueEmail="svelte@example.com" on:sendForm={sendForm} />
+      <RadioBoxes {selections} on:select={handleEvent} />
+
+      <ModalDialog {...modalDialog} on:close={closeModal} />
+      <!--
+      <ModalForm on:sendForm={sendForm} on:close={closeModal} />
+      -->
+      <ModalForm
+        showModal={showFormModal}
+        {valueName}
+        {valueUrl}
+        on:sendForm={sendForm}
+        on:close={closeModal} />
     </div>
   </div>
   <div class="footer">
@@ -91,6 +136,6 @@
 </div>
 
 <svelte:window
-  on:mousemove={handleEvent}
-  on:click={handleEvent}
-  on:keydown={handleEvent} />
+  on:mousemove={handleUserEvent}
+  on:click={handleUserEvent}
+  on:keydown={handleUserEvent} />

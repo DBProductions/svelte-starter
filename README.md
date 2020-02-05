@@ -1,6 +1,6 @@
 # svelte-starter
 
-Works with verion 3.0.0 of Svelte.  
+Works with verion 3.0.0 of Svelte and 12.0.0 of NodeJS.  
 
 Starter repository for the cybernetically enhanced web apps.  
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
@@ -16,7 +16,6 @@ Some basic components are defined and wrapped in a main component.
         - Headline
         - List
             - ListItem
-        - Transitions
         - RadioBoxes
         - ModalDialog/ModalForm
             - Modal
@@ -32,7 +31,7 @@ It's only an example to use a store and display the inactive time of a user and 
 
 ## Format code
 
-    $ npmr run format
+    $ npm run format
 
 ## Run or build
 

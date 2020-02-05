@@ -1,5 +1,6 @@
 <script>
-  import { fade } from 'svelte/transition'
+  import { fly } from 'svelte/transition'
+  import { quintOut } from 'svelte/easing'
   import { createEventDispatcher, onDestroy } from 'svelte'
 
   export let modalForm = false
@@ -65,6 +66,10 @@
     display: inline-block;
     margin-right: 5px;
   }
+  .sendBtn {
+    background: blue;
+    color: white;
+  }
 </style>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -76,12 +81,12 @@
   role="dialog"
   aria-modal="true"
   bind:this={modal}
-  transition:fade={{ duration: 300 }}>
+  transition:fly={{ delay: 0, duration: 1000, y: -500, opacity: 0.2, easing: quintOut }}>
   <slot name="header" />
   <slot />
   <!-- svelte-ignore a11y-autofocus -->
   {#if modalForm}
-    <button on:click={send}>Send</button>
+    <button class="sendBtn" on:click={send}>Send</button>
   {/if}
   <button on:click={close}>Close</button>
 </div>
