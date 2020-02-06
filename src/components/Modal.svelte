@@ -1,4 +1,5 @@
 <script>
+  import Button from './Button.svelte'
   import { fly } from 'svelte/transition'
   import { quintOut } from 'svelte/easing'
   import { createEventDispatcher, onDestroy } from 'svelte'
@@ -62,14 +63,6 @@
     background: white;
     text-align: center;
   }
-  button {
-    display: inline-block;
-    margin-right: 5px;
-  }
-  .sendBtn {
-    background: blue;
-    color: white;
-  }
 </style>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -86,7 +79,7 @@
   <slot />
   <!-- svelte-ignore a11y-autofocus -->
   {#if modalForm}
-    <button class="sendBtn" on:click={send}>Send</button>
+    <Button btnText="Send" send on:click={send} />
   {/if}
-  <button on:click={close}>Close</button>
+  <Button btnText="Close" on:click={close} />
 </div>

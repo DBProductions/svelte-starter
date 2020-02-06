@@ -74,9 +74,11 @@
 <style>
   #container {
     height: 90%;
-    width: 94%;
+    width: 75%;
     padding: 2% 2% 3% 3%;
+    margin: 0 auto;
     border: 1px solid #eee;
+    border-radius: 5px 5px 5px 5px;
   }
   .columns {
     display: flex;
@@ -110,22 +112,20 @@
       <UserInput {userInput} {result} on:input={handleInput} />
 
       <Contenteditable on:edited={handleInput} />
-    </div>
-    <div class="right-column">
-      <Table {selected} data={table} on:clickedRow={handleClickedRow} />
-
-      <RadioBoxes {selections} on:select={handleEvent} />
 
       <ModalDialog {...modalDialog} on:close={closeModal} />
-      <!--
-      <ModalForm on:sendForm={sendForm} on:close={closeModal} />
-      -->
+
       <ModalForm
         showModal={showFormModal}
         {valueName}
         {valueUrl}
         on:sendForm={sendForm}
         on:close={closeModal} />
+    </div>
+    <div class="right-column">
+      <Table {selected} data={table} on:clickedRow={handleClickedRow} />
+
+      <RadioBoxes {selections} on:select={handleEvent} />
     </div>
   </div>
   <div class="footer">

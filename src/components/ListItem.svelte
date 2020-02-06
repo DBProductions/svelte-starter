@@ -15,14 +15,9 @@
     border: 1px solid #ddd;
     border-radius: 3px 3px 3px 3px;
     margin-bottom: 3px;
-    padding: 7px;
-    width: 60%;
+    padding: 9px;
     font-size: 12pt;
     cursor: pointer;
-  }
-  li span {
-    background-color: #aaa;
-    width: 90%;
   }
   .active {
     background-color: #bbb;

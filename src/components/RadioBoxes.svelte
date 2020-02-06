@@ -18,20 +18,17 @@
 <style>
   .selection-container {
     display: flex;
-    margin: 3px;
-    margin-bottom: 10px;
     padding: 3px;
     border-radius: 0 0 5px 0;
     box-shadow: 2px 2px 3px #eee;
   }
   .selection-container > div:not(:first-child) {
-    margin-left: 10px;
-    margin-top: 10px;
+    margin-left: 5px;
+    margin-top: 5px;
   }
   fieldset {
     border: 1px solid #eee;
     border-radius: 5px 5px 5px 5px;
-    padding: 10px;
   }
   .active {
     color: #00f;

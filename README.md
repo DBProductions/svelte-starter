@@ -1,8 +1,8 @@
-# svelte-starter
-
-Works with verion 3.0.0 of Svelte and 12.0.0 of NodeJS.  
+# svelte-starter  
 
 Starter repository for the cybernetically enhanced web apps.  
+Works with Svelte v3.0.0 and NodeJS v12.0.0.  
+
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
 [Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
@@ -13,14 +13,16 @@ No generator or guide how to use Svelte or how to organize your code.
 Some basic components are defined and wrapped in a main component.  
 
     App
+        - Button
         - Headline
         - List
             - ListItem
+        - UserInput
+        - Contenteditable
+        - Table
         - RadioBoxes
         - ModalDialog/ModalForm
             - Modal
-        - UserInput
-        - Contenteditable
 
 A store `stores.js` defines `userActivity` to reset a timer, this gets triggered from `mousemove`, `click` and `keydown`.  
 It's only an example to use a store and display the inactive time of a user and react on window events.  

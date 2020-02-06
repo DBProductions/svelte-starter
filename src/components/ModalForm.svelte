@@ -18,8 +18,8 @@
   }
 
   const close = () => {
-    showModal = false
     dispatch('close', {})
+    showModal = false
   }
 </script>
 
@@ -28,10 +28,6 @@
     width: 90%;
   }
 </style>
-
-<!--
-<button on:click={() => (showModal = true)}>Modal Form</button>
--->
 
 {#if showModal}
   <Modal {modalForm} on:close={close} on:sendForm={sendForm}>

@@ -1,20 +1,26 @@
 <script>
   import Modal from './Modal.svelte'
+  import Button from './Button.svelte'
   import { createEventDispatcher } from 'svelte'
 
   export let showModal = false
   export let headline = 'Modal'
   export let body = ''
+  export let btnText = 'Modal Dialog'
 
   const dispatch = createEventDispatcher()
 
+  const open = () => {
+    showModal = true
+  }
+
   const close = () => {
-    showModal = false
     dispatch('close', {})
+    showModal = false
   }
 </script>
 
-<button on:click={() => (showModal = true)}>Modal</button>
+<Button {btnText} on:click={open} />
 
 {#if showModal}
   <Modal on:close={close}>
