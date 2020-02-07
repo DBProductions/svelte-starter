@@ -1,5 +1,6 @@
 <script>
-  import { userActivity, elapsed } from './stores.js'
+  import { elapsed } from './stores.js'
+  import { createEventDispatcher } from 'svelte'
 
   import Headline from './components/Headline.svelte'
   import List from './components/List.svelte'
@@ -10,65 +11,30 @@
   import RadioBoxes from './components/RadioBoxes.svelte'
   import Contenteditable from './components/Contenteditable.svelte'
 
-  export let message = 'Svelte-Starter'
-  export let itemId = ''
+  export let message
+  export let itemId
+  export let list
+  export let table
+  export let currentItem
+  export let userInput
+  export let result
+  export let modalDialog
+  export let selections
+  export let showFormModal
+  export let selected = ''
+  export let valueName = ''
+  export let valueUrl = ''
 
-  export let list = []
-  export let currentItem = 0
+  const dispatch = createEventDispatcher()
 
-  export let table = {}
-
-  export let userInput = ''
-
-  export let result = ''
-  export let modalDialog = {}
-  export let selections = {}
-
-  let selected = ''
-  let showFormModal = false
-  let valueName = ''
-  let valueUrl = ''
-
-  const listSelection = event => {
-    message = `Clicked item ${event.detail.item.name}`
-    itemId = `Id: ${event.detail.item.id}`
-    selected = event.detail.item.name
-  }
-
-  const handleClickedRow = event => {
-    message = `Clicked item ${event.detail.name}`
-    itemId = `Id: ${event.detail.id}`
-    selected = event.detail.name
-    currentItem = event.detail.id
-  }
-
-  const edit = event => {
-    valueName = event.detail.item.name
-    valueUrl = event.detail.item.url
-    showFormModal = true
-    console.log(event.detail.item)
-  }
-
-  const closeModal = event => {
-    showFormModal = false
-  }
-
-  const handleInput = event => {
-    console.log(event.detail.input)
-  }
-
-  const sendForm = event => {
-    showFormModal = false
-    console.log(event.detail)
-  }
-
-  const handleEvent = event => {
-    console.log(event.detail)
-  }
-
-  const handleUserEvent = event => {
-    userActivity(event)
-  }
+  const listSelection = event => dispatch('listSelection', event.detail.item)
+  const handleClickedRow = event => dispatch('handleClickedRow', event.detail)
+  const edit = event => dispatch('edit', event.detail)
+  const closeModal = event => dispatch('closeModal')
+  const handleInput = event => dispatch('handleInput', event.detail)
+  const sendForm = event => dispatch('sendForm', event.detail)
+  const handleEvent = event => dispatch('handleEvent', event.detail)
+  const handleUserEvent = event => dispatch('handleUserEvent', event.detail)
 </script>
 
 <style>

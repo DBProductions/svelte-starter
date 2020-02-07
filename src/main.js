@@ -1,47 +1,51 @@
 import App from './App.svelte'
+import { appProps } from './data.js'
+import { userActivity } from './stores.js'
 
 const app = new App({
   target: document.body,
-  props: {
-    list: [
-      { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
-      { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
-      { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
-    ],
-    table: {
-      header: ['Name', 'URL'],
-      entries: [
-        { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
-        { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
-        { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
-      ],
-    },
-    modalDialog: {
-      showModal: false,
-      headline: 'Modal',
-      body: 'Modal body text.<br>Plus this.',
-    },
-    selections: [
-      {
-        selector: 'A',
-        label: 'A',
-        text:
-          '<p>This is the selection <strong>A</strong>.<br>It shows the information for A.</p>',
-      },
-      {
-        selector: 'B',
-        label: 'B',
-        text:
-          '<p>This is the selection <strong>B</strong>.<br>It shows the information for B.</p>',
-      },
-      {
-        selector: 'C',
-        label: 'C',
-        text:
-          '<p>This is the selection <strong>C</strong>.<br>It shows the information for C.</p>',
-      },
-    ],
-  },
+  props: appProps,
+})
+
+app.$on('listSelection', event => {
+  app.$set({ message: `Clicked item ${event.detail.name}` })
+  app.$set({ itemId: `Id: ${event.detail.id}` })
+  app.$set({ selected: event.detail.name })
+})
+
+app.$on('handleClickedRow', event => {
+  app.$set({ message: `Clicked item ${event.detail.name}` })
+  app.$set({ itemId: `Id: ${event.detail.id}` })
+  app.$set({ selected: event.detail.name })
+  app.$set({ currentItem: event.detail.id })
+})
+
+app.$on('edit', event => {
+  app.$set({ valueName: event.detail.item.name })
+  app.$set({ valueUrl: event.detail.item.url })
+  app.$set({ showFormModal: true })
+  console.log(event.detail.item)
+})
+
+app.$on('closeModal', event => {
+  app.$set({ showFormModal: false })
+})
+
+app.$on('handleEvent', event => {
+  console.log(event.detail)
+})
+
+app.$on('handleInput', event => {
+  console.log(event.detail)
+})
+
+app.$on('handleUserEvent', event => {
+  userActivity(event)
+})
+
+app.$on('sendForm', event => {
+  app.$set({ showFormModal: false })
+  console.log(event.detail)
 })
 
 export default app

@@ -79,7 +79,7 @@
   <slot />
   <!-- svelte-ignore a11y-autofocus -->
   {#if modalForm}
-    <Button btnText="Send" send on:click={send} />
+    <Button send on:click={send}>Send</Button>
   {/if}
-  <Button btnText="Close" on:click={close} />
+  <Button on:click={close}>Close</Button>
 </div>

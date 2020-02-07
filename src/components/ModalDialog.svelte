@@ -20,7 +20,7 @@
   }
 </script>
 
-<Button {btnText} on:click={open} />
+<Button on:click={open}>{btnText}</Button>
 
 {#if showModal}
   <Modal on:close={close}>

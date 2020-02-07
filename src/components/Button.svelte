@@ -1,5 +1,4 @@
 <script>
-  export let btnText = 'Click Me'
   export let send = false
 </script>
 
@@ -19,4 +18,6 @@
   }
 </style>
 
-<button class:sendBtn={send === true} on:click>{btnText}</button>
+<button class:sendBtn={send === true} on:click>
+  <slot />
+</button>
