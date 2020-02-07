@@ -10,6 +10,7 @@
   import UserInput from './components/UserInput.svelte'
   import RadioBoxes from './components/RadioBoxes.svelte'
   import Contenteditable from './components/Contenteditable.svelte'
+  import Profile from './components/Profile.svelte'
 
   export let message
   export let itemId
@@ -92,6 +93,8 @@
       <Table {selected} data={table} on:clickedRow={handleClickedRow} />
 
       <RadioBoxes {selections} on:select={handleEvent} />
+
+      <Profile />
     </div>
   </div>
   <div class="footer">
