@@ -25,6 +25,8 @@ Some basic components are defined and wrapped in a main component.
             - Modal
         - Profile
 
+Data used in the application is stored in `data.js`.
+
 A store `stores.js` defines `userActivity` to reset a timer, this gets triggered from `mousemove`, `click` and `keydown`.  
 It's only an example to use a store and display the inactive time of a user and react on window events.  
 

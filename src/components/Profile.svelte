@@ -4,18 +4,24 @@
 
   let name
   let email
+  let nameOrg
+  let emailOrg
   let thumbnail
   let visible = false
+  const maxlength = 27
+
+  const shortenString = str => {
+    return str.length > maxlength
+      ? str.substring(0, maxlength - 3) + '...'
+      : str
+  }
 
   async function loadData() {
-    const length = 27
     let userData = await fetch(`https://randomuser.me/api/`).then(r => r.json())
-    console.log(userData.results[0])
-    name = `${userData.results[0].name.title} ${userData.results[0].name.first} ${userData.results[0].name.last}`
-    email = userData.results[0].email
-    name = name.length > length ? name.substring(0, length - 3) + '...' : name
-    email =
-      email.length > length ? email.substring(0, length - 3) + '...' : email
+    nameOrg = `${userData.results[0].name.title} ${userData.results[0].name.first} ${userData.results[0].name.last}`
+    emailOrg = userData.results[0].email
+    name = shortenString(nameOrg)
+    email = shortenString(emailOrg)
     thumbnail = userData.results[0].picture.medium
     visible = true
   }
@@ -46,8 +52,8 @@
       <img src={thumbnail} alt="" />
     </div>
     <div>
-      <div>{name}</div>
-      <div>{email}</div>
+      <div title={nameOrg}>{name}</div>
+      <div title={emailOrg}>{email}</div>
     </div>
   </div>
 {/if}
