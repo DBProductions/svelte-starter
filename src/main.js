@@ -7,10 +7,23 @@ const app = new App({
   props: appProps,
 })
 
+const logEvent = event => {
+  //let logs = (app.logs) ? app.logs + '\n' + JSON.stringify(event) : JSON.stringify(event);
+  app.$set({
+    logs: app.logs
+      ? app.logs + '\n' + JSON.stringify(event)
+      : JSON.stringify(event),
+  })
+  document.querySelector('#eventLog').scrollTop = document.querySelector(
+    '#eventLog'
+  ).scrollHeight
+}
+
 app.$on('listSelection', event => {
   app.$set({ message: `Clicked item ${event.detail.name}` })
   app.$set({ itemId: `Id: ${event.detail.id}` })
   app.$set({ selected: event.detail.name })
+  logEvent(event.detail)
 })
 
 app.$on('handleClickedRow', event => {
@@ -18,25 +31,27 @@ app.$on('handleClickedRow', event => {
   app.$set({ itemId: `Id: ${event.detail.id}` })
   app.$set({ selected: event.detail.name })
   app.$set({ currentItem: event.detail.id })
+  logEvent(event.detail)
 })
 
 app.$on('edit', event => {
   app.$set({ valueName: event.detail.item.name })
   app.$set({ valueUrl: event.detail.item.url })
   app.$set({ showFormModal: true })
-  console.log(event.detail.item)
+  logEvent(event.detail)
 })
 
-app.$on('closeModal', event => {
+app.$on('close', event => {
   app.$set({ showFormModal: false })
+  logEvent(event.detail)
 })
 
 app.$on('handleEvent', event => {
-  console.log(event.detail)
+  logEvent(event.detail)
 })
 
-app.$on('handleInput', event => {
-  console.log(event.detail)
+app.$on('input', event => {
+  logEvent(event.detail)
 })
 
 app.$on('handleUserEvent', event => {
@@ -45,7 +60,7 @@ app.$on('handleUserEvent', event => {
 
 app.$on('sendForm', event => {
   app.$set({ showFormModal: false })
-  console.log(event.detail)
+  logEvent(event.detail)
 })
 
 export default app

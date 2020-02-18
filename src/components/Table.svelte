@@ -10,7 +10,7 @@
 </script>
 
 <style>
-  table {
+  .tbl {
     border-collapse: collapse;
     border-spacing: 0;
     margin-bottom: 5px;
@@ -67,7 +67,7 @@
   }
 </style>
 
-<table>
+<table class="tbl">
   <thead>
     <tr>
       {#each data.header as header}

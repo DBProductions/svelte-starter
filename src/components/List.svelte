@@ -11,7 +11,6 @@
     currentItem = event.detail.item.id
     dispatch('select', event.detail)
   }
-  const edit = event => dispatch('edit', event.detail)
 </script>
 
 <style>
@@ -22,10 +21,10 @@
   }
 </style>
 
-<div>
+<div class="list-container">
   <ul>
     {#each list as item}
-      <ListItem {currentItem} {item} on:select={select} on:edit={edit} />
+      <ListItem {currentItem} {item} on:select={select} on:edit />
     {/each}
   </ul>
 </div>

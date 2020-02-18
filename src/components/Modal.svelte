@@ -5,6 +5,7 @@
   import { createEventDispatcher, onDestroy } from 'svelte'
 
   export let modalForm = false
+  export let modalId = 'modal'
 
   const dispatch = createEventDispatcher()
 
@@ -70,6 +71,7 @@
 <div class="modal-background" on:click={close} />
 
 <div
+  id={modalId}
   class="modal"
   role="dialog"
   aria-modal="true"
@@ -81,5 +83,5 @@
   {#if modalForm}
     <Button send on:click={send}>Send</Button>
   {/if}
-  <Button on:click={close}>Close</Button>
+  <Button id="modalCloseBtn" on:click={close}>Close</Button>
 </div>

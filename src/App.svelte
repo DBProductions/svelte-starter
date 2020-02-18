@@ -11,6 +11,7 @@
   import RadioBoxes from './components/RadioBoxes.svelte'
   import Contenteditable from './components/Contenteditable.svelte'
   import Profile from './components/Profile.svelte'
+  import EventLog from './components/EventLog.svelte'
 
   export let message
   export let itemId
@@ -18,21 +19,19 @@
   export let table
   export let currentItem
   export let userInput
-  export let result
   export let modalDialog
   export let selections
   export let showFormModal
   export let selected = ''
   export let valueName = ''
   export let valueUrl = ''
+  export let showLogs = true
+  export let logs = ''
 
   const dispatch = createEventDispatcher()
 
   const listSelection = event => dispatch('listSelection', event.detail.item)
   const handleClickedRow = event => dispatch('handleClickedRow', event.detail)
-  const edit = event => dispatch('edit', event.detail)
-  const closeModal = event => dispatch('closeModal')
-  const handleInput = event => dispatch('handleInput', event.detail)
   const sendForm = event => dispatch('sendForm', event.detail)
   const handleEvent = event => dispatch('handleEvent', event.detail)
   const handleUserEvent = event => dispatch('handleUserEvent', event.detail)
@@ -49,18 +48,19 @@
   }
   .columns {
     display: flex;
+    flex-wrap: wrap;
     padding: 3px;
   }
+  .columns > * {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 300px;
+  }
   .columns .left-column {
-    width: 60%;
-    height: inherit;
-    padding: 2% 2% 3% 3%;
+    padding: 1% 1% 2% 2%;
   }
   .columns .right-column {
-    width: 30%;
-    height: inherit;
-    padding: 2% 2% 3% 3%;
-    display: block;
+    padding: 1% 1% 2% 2%;
   }
   .footer {
     margin: 7px;
@@ -68,26 +68,28 @@
   }
 </style>
 
+<svelte:options accessors={true} />
+
 <div id="container">
   <div>
     <Headline {message} {itemId} />
   </div>
   <div class="columns">
     <div class="left-column">
-      <List {list} {currentItem} on:select={listSelection} on:edit={edit} />
+      <List {list} {currentItem} on:select={listSelection} on:edit />
 
-      <UserInput {userInput} {result} on:input={handleInput} />
+      <UserInput {userInput} on:input />
 
-      <Contenteditable on:edited={handleInput} />
+      <Contenteditable content="This content is editable." on:input />
 
-      <ModalDialog {...modalDialog} on:close={closeModal} />
+      <ModalDialog {...modalDialog} on:close />
 
       <ModalForm
         showModal={showFormModal}
         {valueName}
         {valueUrl}
         on:sendForm={sendForm}
-        on:close={closeModal} />
+        on:close />
     </div>
     <div class="right-column">
       <Table {selected} data={table} on:clickedRow={handleClickedRow} />
@@ -102,6 +104,7 @@
       The user is inactive for {$elapsed} {$elapsed === 1 ? 'second' : 'seconds'}
     </div>
   </div>
+  <EventLog {showLogs} {logs} />
 </div>
 
 <svelte:window

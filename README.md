@@ -2,6 +2,7 @@
 
 Starter repository for the cybernetically enhanced web apps.  
 Works with Svelte v3.0.0 and NodeJS v12.0.0.  
+Prettier for code formatting and Cypress for end-to-end testing.  
 
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
@@ -24,6 +25,7 @@ Some basic components are defined and wrapped in a main component.
         - ModalDialog/ModalForm
             - Modal
         - Profile
+        - EventLog
 
 Data used in the application is stored in `data.js`.
 
@@ -46,6 +48,10 @@ It's only an example to use a store and display the inactive time of a user and 
 ## Browse
 
 Navigate to [localhost:5000](http://localhost:5000).
+
+## Cypress
+
+    $ npm run start:cypress
 
 ## Feedback
 Star this repo if you found it useful. Use the github issue tracker to give feedback on this repo.

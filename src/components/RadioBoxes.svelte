@@ -29,6 +29,7 @@
   fieldset {
     border: 1px solid #eee;
     border-radius: 5px 5px 5px 5px;
+    display: flex;
   }
   .active {
     color: #00f;
@@ -37,13 +38,18 @@
 
 <div class="selection-container">
   <div>
-    <fieldset id="group1">
+    <fieldset>
       {#each selections as { selector, label }, i}
         <label
           class:active={current === selector}
           on:click={setSelection(selector)}>
-          <input type="radio" name="selection" value={selector} />
           {label}
+          <input
+            type="radio"
+            name="selection"
+            id={selector}
+            title={selector}
+            value={selector} />
         </label>
       {/each}
     </fieldset>

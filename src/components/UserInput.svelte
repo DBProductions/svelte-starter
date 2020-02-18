@@ -2,7 +2,6 @@
   import { createEventDispatcher } from 'svelte'
 
   export let userInput = ''
-  export let result = ''
 
   const dispatch = createEventDispatcher()
 
@@ -18,17 +17,14 @@
     margin-right: 20px;
     font-size: 12pt;
   }
-  div {
+  .user-input {
     margin-top: 10px;
     font-size: 12pt;
   }
 </style>
 
-<div>
+<div class="user-input">
   Two-way binding
   <input type="text" bind:value={userInput} on:keyup={keypress} />
-  {userInput}
-  {#if result}
-    <div>{result}</div>
-  {/if}
+  <span>{userInput}</span>
 </div>

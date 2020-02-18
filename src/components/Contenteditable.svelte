@@ -1,10 +1,24 @@
 <script>
   import { createEventDispatcher } from 'svelte'
 
-  let content = 'This content is editable.'
+  export let content = ''
+
   const dispatch = createEventDispatcher()
 
-  const keypress = () => dispatch('edited', { input: content })
+  const keypress = () => dispatch('input', { input: content })
 </script>
 
-<div contenteditable="true" bind:textContent={content} on:keyup={keypress} />
+<style>
+  .contentBox {
+    margin: 7px 0px 7px 0px;
+    padding: 5px;
+    border-radius: 5px 5px 5px 5px;
+    box-shadow: 2px 2px 3px #eee;
+  }
+</style>
+
+<div
+  class="contentBox"
+  contenteditable="true"
+  bind:textContent={content}
+  on:keyup={keypress} />

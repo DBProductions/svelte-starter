@@ -3,11 +3,11 @@ export const appProps = {
   itemId: '',
   currentItem: 0,
   userInput: '',
-  result: '',
   list: [
     { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
     { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
     { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
+    { id: 4, name: 'Cypress', url: 'https://cypress.io/' },
   ],
   table: {
     header: ['Name', 'URL'],
@@ -15,6 +15,7 @@ export const appProps = {
       { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
       { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
       { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
+      { id: 4, name: 'Cypress', url: 'https://cypress.io/' },
     ],
   },
   showFormModal: false,

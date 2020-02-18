@@ -10,7 +10,7 @@
   let visible = false
   const maxlength = 27
 
-  const shortenString = str => {
+  const shortenString = (str, maxlength) => {
     return str.length > maxlength
       ? str.substring(0, maxlength - 3) + '...'
       : str
@@ -20,8 +20,8 @@
     let userData = await fetch(`https://randomuser.me/api/`).then(r => r.json())
     nameOrg = `${userData.results[0].name.title} ${userData.results[0].name.first} ${userData.results[0].name.last}`
     emailOrg = userData.results[0].email
-    name = shortenString(nameOrg)
-    email = shortenString(emailOrg)
+    name = shortenString(nameOrg, maxlength)
+    email = shortenString(emailOrg, maxlength)
     thumbnail = userData.results[0].picture.medium
     visible = true
   }
@@ -42,6 +42,9 @@
     margin-left: 7px;
   }
   img {
+    margin-top: 2px;
+    margin-left: 2px;
+    border: 1px solid #bbb;
     box-shadow: 2px 2px 3px #eee;
   }
 </style>

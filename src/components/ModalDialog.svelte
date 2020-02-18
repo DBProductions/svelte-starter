@@ -20,10 +20,10 @@
   }
 </script>
 
-<Button on:click={open}>{btnText}</Button>
+<Button id="modalDialog" on:click={open}>{btnText}</Button>
 
 {#if showModal}
-  <Modal on:close={close}>
+  <Modal modalId="modalDialog" on:close={close}>
     <h2 slot="header">{headline}</h2>
     <p>
       {@html body}

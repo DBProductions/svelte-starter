@@ -30,21 +30,17 @@
 </style>
 
 {#if showModal}
-  <Modal {modalForm} on:close={close} on:sendForm={sendForm}>
+  <Modal
+    modalId="modalForm"
+    {modalForm}
+    on:close={close}
+    on:sendForm={sendForm}>
     <h2 slot="header">{headline}</h2>
     <div>
-      <input
-        type="text"
-        bind:value={valueName}
-        value={valueName}
-        placeholder={placeholderName} />
+      <input type="text" bind:value={valueName} placeholder={placeholderName} />
     </div>
     <div>
-      <input
-        type="text"
-        bind:value={valueUrl}
-        value={valueUrl}
-        placeholder={placeholderUrl} />
+      <input type="text" bind:value={valueUrl} placeholder={placeholderUrl} />
     </div>
   </Modal>
 {/if}
