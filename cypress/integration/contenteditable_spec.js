@@ -4,18 +4,14 @@ describe('Content Editable Component', () => {
   })
 
   it('Content editable', () => {
-    cy.get(
-      '#container > div.columns.svelte-1amdsmp > div.left-column.svelte-1amdsmp > div.contentBox.svelte-1yv2dil'
-    )
+    cy.get('div.contentBox')
       .click()
       .type(' Content Edit')
       .should('have.text', 'This content is editable. Content Edit')
   })
 
   it('Content selectable', () => {
-    cy.get(
-      '#container > div.columns.svelte-1amdsmp > div.left-column.svelte-1amdsmp > div.contentBox.svelte-1yv2dil'
-    )
+    cy.get('div.contentBox')
       .click()
       .type('{selectall}{backspace}')
       .type('Cypress')

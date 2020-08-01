@@ -1,5 +1,5 @@
 
-(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.head.appendChild(r) })(window.document);
+(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(window.document);
 var app = (function () {
     'use strict';
 
@@ -60,7 +60,10 @@ var app = (function () {
     function get_slot_changes(definition, $$scope, dirty, fn) {
         if (definition[2] && fn) {
             const lets = definition[2](fn(dirty));
-            if (typeof $$scope.dirty === 'object') {
+            if ($$scope.dirty === undefined) {
+                return lets;
+            }
+            if (typeof lets === 'object') {
                 const merged = [];
                 const len = Math.max($$scope.dirty.length, lets.length);
                 for (let i = 0; i < len; i += 1) {
@@ -71,6 +74,13 @@ var app = (function () {
             return $$scope.dirty | lets;
         }
         return $$scope.dirty;
+    }
+    function update_slot(slot, slot_definition, ctx, $$scope, dirty, get_slot_changes_fn, get_slot_context_fn) {
+        const slot_changes = get_slot_changes(slot_definition, $$scope, dirty, get_slot_changes_fn);
+        if (slot_changes) {
+            const slot_context = get_slot_context(slot_definition, ctx, $$scope, get_slot_context_fn);
+            slot.p(slot_context, slot_changes);
+        }
     }
 
     const is_client = typeof window !== 'undefined';
@@ -149,9 +159,7 @@ var app = (function () {
         return Array.from(element.childNodes);
     }
     function set_input_value(input, value) {
-        if (value != null || input.value) {
-            input.value = value;
-        }
+        input.value = value == null ? '' : value;
     }
     function set_style(node, key, value, important) {
         node.style.setProperty(key, value, important ? 'important' : '');
@@ -165,34 +173,39 @@ var app = (function () {
         return e;
     }
     class HtmlTag {
-        constructor(html, anchor = null) {
-            this.e = element('div');
+        constructor(anchor = null) {
             this.a = anchor;
-            this.u(html);
+            this.e = this.n = null;
         }
-        m(target, anchor = null) {
-            for (let i = 0; i < this.n.length; i += 1) {
-                insert(target, this.n[i], anchor);
+        m(html, target, anchor = null) {
+            if (!this.e) {
+                this.e = element(target.nodeName);
+                this.t = target;
+                this.h(html);
             }
-            this.t = target;
+            this.i(anchor);
         }
-        u(html) {
+        h(html) {
             this.e.innerHTML = html;
             this.n = Array.from(this.e.childNodes);
         }
+        i(anchor) {
+            for (let i = 0; i < this.n.length; i += 1) {
+                insert(this.t, this.n[i], anchor);
+            }
+        }
         p(html) {
             this.d();
-            this.u(html);
-            this.m(this.t, this.a);
+            this.h(html);
+            this.i(this.a);
         }
         d() {
             this.n.forEach(detach);
         }
     }
 
-    let stylesheet;
+    const active_docs = new Set();
     let active = 0;
-    let current_rules = {};
     // https://github.com/darkskyapp/string-hash/blob/master/index.js
     function hash(str) {
         let hash = 5381;
@@ -210,12 +223,11 @@ var app = (function () {
         }
         const rule = keyframes + `100% {${fn(b, 1 - b)}}\n}`;
         const name = `__svelte_${hash(rule)}_${uid}`;
+        const doc = node.ownerDocument;
+        active_docs.add(doc);
+        const stylesheet = doc.__svelte_stylesheet || (doc.__svelte_stylesheet = doc.head.appendChild(element('style')).sheet);
+        const current_rules = doc.__svelte_rules || (doc.__svelte_rules = {});
         if (!current_rules[name]) {
-            if (!stylesheet) {
-                const style = element('style');
-                document.head.appendChild(style);
-                stylesheet = style.sheet;
-            }
             current_rules[name] = true;
             stylesheet.insertRule(`@keyframes ${name} ${rule}`, stylesheet.cssRules.length);
         }
@@ -225,24 +237,31 @@ var app = (function () {
         return name;
     }
     function delete_rule(node, name) {
-        node.style.animation = (node.style.animation || '')
-            .split(', ')
-            .filter(name
+        const previous = (node.style.animation || '').split(', ');
+        const next = previous.filter(name
             ? anim => anim.indexOf(name) < 0 // remove specific animation
             : anim => anim.indexOf('__svelte') === -1 // remove all Svelte animations
-        )
-            .join(', ');
-        if (name && !--active)
-            clear_rules();
+        );
+        const deleted = previous.length - next.length;
+        if (deleted) {
+            node.style.animation = next.join(', ');
+            active -= deleted;
+            if (!active)
+                clear_rules();
+        }
     }
     function clear_rules() {
         raf(() => {
             if (active)
                 return;
-            let i = stylesheet.cssRules.length;
-            while (i--)
-                stylesheet.deleteRule(i);
-            current_rules = {};
+            active_docs.forEach(doc => {
+                const stylesheet = doc.__svelte_stylesheet;
+                let i = stylesheet.cssRules.length;
+                while (i--)
+                    stylesheet.deleteRule(i);
+                doc.__svelte_rules = {};
+            });
+            active_docs.clear();
         });
     }
 
@@ -623,8 +642,10 @@ var app = (function () {
         $$.fragment = create_fragment ? create_fragment($$.ctx) : false;
         if (options.target) {
             if (options.hydrate) {
+                const nodes = children(options.target);
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                $$.fragment && $$.fragment.l(children(options.target));
+                $$.fragment && $$.fragment.l(nodes);
+                nodes.forEach(detach);
             }
             else {
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -657,7 +678,7 @@ var app = (function () {
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.18.2' }, detail)));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.24.0' }, detail)));
     }
     function append_dev(target, node) {
         dispatch_dev("SvelteDOMInsert", { target, node });
@@ -697,10 +718,26 @@ var app = (function () {
     }
     function set_data_dev(text, data) {
         data = '' + data;
-        if (text.data === data)
+        if (text.wholeText === data)
             return;
         dispatch_dev("SvelteDOMSetData", { node: text, data });
         text.data = data;
+    }
+    function validate_each_argument(arg) {
+        if (typeof arg !== 'string' && !(arg && typeof arg === 'object' && 'length' in arg)) {
+            let msg = '{#each} only iterates over array-like objects.';
+            if (typeof Symbol === 'function' && arg && Symbol.iterator in arg) {
+                msg += ' You can use a spread to convert this iterable into an array.';
+            }
+            throw new Error(msg);
+        }
+    }
+    function validate_slots(name, slot, keys) {
+        for (const slot_key of Object.keys(slot)) {
+            if (!~keys.indexOf(slot_key)) {
+                console.warn(`<${name}> received an unexpected slot "${slot_key}".`);
+            }
+        }
     }
     class SvelteComponentDev extends SvelteComponent {
         constructor(options) {
@@ -715,6 +752,8 @@ var app = (function () {
                 console.warn(`Component was already destroyed`); // eslint-disable-line no-console
             };
         }
+        $capture_state() { }
+        $inject_state() { }
     }
 
     const subscriber_queue = [];
@@ -840,7 +879,7 @@ var app = (function () {
       Math.round(($time - start) / 1000)
     );
 
-    /* src/components/Headline.svelte generated by Svelte v3.18.2 */
+    /* src/components/Headline.svelte generated by Svelte v3.24.0 */
 
     const file = "src/components/Headline.svelte";
 
@@ -904,19 +943,24 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Headline> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Headline", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("message" in $$props) $$invalidate(0, message = $$props.message);
     		if ("itemId" in $$props) $$invalidate(1, itemId = $$props.itemId);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { message, itemId };
-    	};
+    	$$self.$capture_state = () => ({ message, itemId });
 
     	$$self.$inject_state = $$props => {
     		if ("message" in $$props) $$invalidate(0, message = $$props.message);
     		if ("itemId" in $$props) $$invalidate(1, itemId = $$props.itemId);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [message, itemId];
     }
@@ -951,7 +995,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ListItem.svelte generated by Svelte v3.18.2 */
+    /* src/components/ListItem.svelte generated by Svelte v3.24.0 */
     const file$1 = "src/components/ListItem.svelte";
 
     function create_fragment$1(ctx) {
@@ -966,6 +1010,7 @@ var app = (function () {
     	let small;
     	let t4_value = /*item*/ ctx[0].url + "";
     	let t4;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -1003,28 +1048,32 @@ var app = (function () {
     			append_dev(div1, small);
     			append_dev(small, t4);
 
-    			dispose = [
-    				listen_dev(
-    					buttton,
-    					"click",
-    					function () {
-    						if (is_function(/*edit*/ ctx[3](/*item*/ ctx[0]))) /*edit*/ ctx[3](/*item*/ ctx[0]).apply(this, arguments);
-    					},
-    					false,
-    					false,
-    					false
-    				),
-    				listen_dev(
-    					div1,
-    					"click",
-    					function () {
-    						if (is_function(/*select*/ ctx[2](/*item*/ ctx[0]))) /*select*/ ctx[2](/*item*/ ctx[0]).apply(this, arguments);
-    					},
-    					false,
-    					false,
-    					false
-    				)
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(
+    						buttton,
+    						"click",
+    						function () {
+    							if (is_function(/*edit*/ ctx[3](/*item*/ ctx[0]))) /*edit*/ ctx[3](/*item*/ ctx[0]).apply(this, arguments);
+    						},
+    						false,
+    						false,
+    						false
+    					),
+    					listen_dev(
+    						div1,
+    						"click",
+    						function () {
+    							if (is_function(/*select*/ ctx[2](/*item*/ ctx[0]))) /*select*/ ctx[2](/*item*/ ctx[0]).apply(this, arguments);
+    						},
+    						false,
+    						false,
+    						false
+    					)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(new_ctx, [dirty]) {
     			ctx = new_ctx;
@@ -1039,6 +1088,7 @@ var app = (function () {
     		o: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(li);
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -1066,19 +1116,31 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ListItem> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("ListItem", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("item" in $$props) $$invalidate(0, item = $$props.item);
     		if ("currentItem" in $$props) $$invalidate(1, currentItem = $$props.currentItem);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { item, currentItem };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		item,
+    		currentItem,
+    		dispatch,
+    		select,
+    		edit
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("item" in $$props) $$invalidate(0, item = $$props.item);
     		if ("currentItem" in $$props) $$invalidate(1, currentItem = $$props.currentItem);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [item, currentItem, select, edit];
     }
@@ -1113,7 +1175,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/List.svelte generated by Svelte v3.18.2 */
+    /* src/components/List.svelte generated by Svelte v3.24.0 */
     const file$2 = "src/components/List.svelte";
 
     function get_each_context(ctx, list, i) {
@@ -1124,9 +1186,10 @@ var app = (function () {
 
     // (26:4) {#each list as item}
     function create_each_block(ctx) {
+    	let listitem;
     	let current;
 
-    	const listitem = new ListItem({
+    	listitem = new ListItem({
     			props: {
     				currentItem: /*currentItem*/ ctx[0],
     				item: /*item*/ ctx[5]
@@ -1135,7 +1198,7 @@ var app = (function () {
     		});
 
     	listitem.$on("select", /*select*/ ctx[2]);
-    	listitem.$on("edit", /*edit_handler*/ ctx[4]);
+    	listitem.$on("edit", /*edit_handler*/ ctx[3]);
 
     	const block = {
     		c: function create() {
@@ -1181,6 +1244,7 @@ var app = (function () {
     	let ul;
     	let current;
     	let each_value = /*list*/ ctx[1];
+    	validate_each_argument(each_value);
     	let each_blocks = [];
 
     	for (let i = 0; i < each_value.length; i += 1) {
@@ -1221,6 +1285,7 @@ var app = (function () {
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*currentItem, list, select*/ 7) {
     				each_value = /*list*/ ctx[1];
+    				validate_each_argument(each_value);
     				let i;
 
     				for (i = 0; i < each_value.length; i += 1) {
@@ -1297,6 +1362,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<List> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("List", $$slots, []);
+
     	function edit_handler(event) {
     		bubble($$self, event);
     	}
@@ -1306,16 +1374,25 @@ var app = (function () {
     		if ("currentItem" in $$props) $$invalidate(0, currentItem = $$props.currentItem);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { list, currentItem };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		ListItem,
+    		list,
+    		currentItem,
+    		dispatch,
+    		select
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("list" in $$props) $$invalidate(1, list = $$props.list);
     		if ("currentItem" in $$props) $$invalidate(0, currentItem = $$props.currentItem);
     	};
 
-    	return [currentItem, list, select, dispatch, edit_handler];
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [currentItem, list, select, edit_handler];
     }
 
     class List extends SvelteComponentDev {
@@ -1348,7 +1425,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Table.svelte generated by Svelte v3.18.2 */
+    /* src/components/Table.svelte generated by Svelte v3.24.0 */
     const file$3 = "src/components/Table.svelte";
 
     function get_each_context$1(ctx, list, i) {
@@ -1410,6 +1487,7 @@ var app = (function () {
     	let t2_value = /*entry*/ ctx[4].url + "";
     	let t2;
     	let t3;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -1438,16 +1516,20 @@ var app = (function () {
     			append_dev(td1, t2);
     			append_dev(tr, t3);
 
-    			dispose = listen_dev(
-    				tr,
-    				"click",
-    				function () {
-    					if (is_function(/*handleClick*/ ctx[2](/*entry*/ ctx[4]))) /*handleClick*/ ctx[2](/*entry*/ ctx[4]).apply(this, arguments);
-    				},
-    				false,
-    				false,
-    				false
-    			);
+    			if (!mounted) {
+    				dispose = listen_dev(
+    					tr,
+    					"click",
+    					function () {
+    						if (is_function(/*handleClick*/ ctx[2](/*entry*/ ctx[4]))) /*handleClick*/ ctx[2](/*entry*/ ctx[4]).apply(this, arguments);
+    					},
+    					false,
+    					false,
+    					false
+    				);
+
+    				mounted = true;
+    			}
     		},
     		p: function update(new_ctx, dirty) {
     			ctx = new_ctx;
@@ -1460,6 +1542,7 @@ var app = (function () {
     		},
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(tr);
+    			mounted = false;
     			dispose();
     		}
     	};
@@ -1482,6 +1565,7 @@ var app = (function () {
     	let t;
     	let tbody;
     	let each_value_1 = /*data*/ ctx[0].header;
+    	validate_each_argument(each_value_1);
     	let each_blocks_1 = [];
 
     	for (let i = 0; i < each_value_1.length; i += 1) {
@@ -1489,6 +1573,7 @@ var app = (function () {
     	}
 
     	let each_value = /*data*/ ctx[0].entries;
+    	validate_each_argument(each_value);
     	let each_blocks = [];
 
     	for (let i = 0; i < each_value.length; i += 1) {
@@ -1542,6 +1627,7 @@ var app = (function () {
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*data*/ 1) {
     				each_value_1 = /*data*/ ctx[0].header;
+    				validate_each_argument(each_value_1);
     				let i;
 
     				for (i = 0; i < each_value_1.length; i += 1) {
@@ -1565,6 +1651,7 @@ var app = (function () {
 
     			if (dirty & /*selected, data, handleClick*/ 7) {
     				each_value = /*data*/ ctx[0].entries;
+    				validate_each_argument(each_value);
     				let i;
 
     				for (i = 0; i < each_value.length; i += 1) {
@@ -1617,19 +1704,30 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Table> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Table", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("data" in $$props) $$invalidate(0, data = $$props.data);
     		if ("selected" in $$props) $$invalidate(1, selected = $$props.selected);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { data, selected };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		data,
+    		selected,
+    		dispatch,
+    		handleClick
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("data" in $$props) $$invalidate(0, data = $$props.data);
     		if ("selected" in $$props) $$invalidate(1, selected = $$props.selected);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [data, selected, handleClick];
     }
@@ -1664,13 +1762,14 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Button.svelte generated by Svelte v3.18.2 */
+    /* src/components/Button.svelte generated by Svelte v3.24.0 */
 
     const file$4 = "src/components/Button.svelte";
 
     function create_fragment$4(ctx) {
     	let button;
     	let current;
+    	let mounted;
     	let dispose;
     	const default_slot_template = /*$$slots*/ ctx[3].default;
     	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[2], null);
@@ -1695,11 +1794,17 @@ var app = (function () {
     			}
 
     			current = true;
-    			dispose = listen_dev(button, "click", /*click_handler*/ ctx[4], false, false, false);
+
+    			if (!mounted) {
+    				dispose = listen_dev(button, "click", /*click_handler*/ ctx[4], false, false, false);
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
-    			if (default_slot && default_slot.p && dirty & /*$$scope*/ 4) {
-    				default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[2], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[2], dirty, null));
+    			if (default_slot) {
+    				if (default_slot.p && dirty & /*$$scope*/ 4) {
+    					update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[2], dirty, null, null);
+    				}
     			}
 
     			if (!current || dirty & /*id*/ 2) {
@@ -1722,6 +1827,7 @@ var app = (function () {
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(button);
     			if (default_slot) default_slot.d(detaching);
+    			mounted = false;
     			dispose();
     		}
     	};
@@ -1747,6 +1853,7 @@ var app = (function () {
     	});
 
     	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Button", $$slots, ['default']);
 
     	function click_handler(event) {
     		bubble($$self, event);
@@ -1758,14 +1865,16 @@ var app = (function () {
     		if ("$$scope" in $$props) $$invalidate(2, $$scope = $$props.$$scope);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { send, id };
-    	};
+    	$$self.$capture_state = () => ({ send, id });
 
     	$$self.$inject_state = $$props => {
     		if ("send" in $$props) $$invalidate(0, send = $$props.send);
     		if ("id" in $$props) $$invalidate(1, id = $$props.id);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [send, id, $$scope, $$slots, click_handler];
     }
@@ -1832,16 +1941,17 @@ var app = (function () {
         };
     }
 
-    /* src/components/Modal.svelte generated by Svelte v3.18.2 */
+    /* src/components/Modal.svelte generated by Svelte v3.24.0 */
     const file$5 = "src/components/Modal.svelte";
     const get_header_slot_changes = dirty => ({});
     const get_header_slot_context = ctx => ({});
 
     // (83:2) {#if modalForm}
     function create_if_block(ctx) {
+    	let button;
     	let current;
 
-    	const button = new Button({
+    	button = new Button({
     			props: {
     				send: true,
     				$$slots: { default: [create_default_slot_1] },
@@ -1863,7 +1973,7 @@ var app = (function () {
     		p: function update(ctx, dirty) {
     			const button_changes = {};
 
-    			if (dirty & /*$$scope*/ 1024) {
+    			if (dirty & /*$$scope*/ 256) {
     				button_changes.$$scope = { dirty, ctx };
     			}
 
@@ -1955,16 +2065,18 @@ var app = (function () {
     	let t1;
     	let t2;
     	let t3;
+    	let button;
     	let div1_transition;
     	let current;
+    	let mounted;
     	let dispose;
-    	const header_slot_template = /*$$slots*/ ctx[8].header;
-    	const header_slot = create_slot(header_slot_template, ctx, /*$$scope*/ ctx[10], get_header_slot_context);
-    	const default_slot_template = /*$$slots*/ ctx[8].default;
-    	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[10], null);
+    	const header_slot_template = /*$$slots*/ ctx[6].header;
+    	const header_slot = create_slot(header_slot_template, ctx, /*$$scope*/ ctx[8], get_header_slot_context);
+    	const default_slot_template = /*$$slots*/ ctx[6].default;
+    	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[8], null);
     	let if_block = /*modalForm*/ ctx[0] && create_if_block(ctx);
 
-    	const button = new Button({
+    	button = new Button({
     			props: {
     				id: "modalCloseBtn",
     				$$slots: { default: [create_default_slot] },
@@ -2017,27 +2129,38 @@ var app = (function () {
     			if (if_block) if_block.m(div1, null);
     			append_dev(div1, t3);
     			mount_component(button, div1, null);
-    			/*div1_binding*/ ctx[9](div1);
+    			/*div1_binding*/ ctx[7](div1);
     			current = true;
 
-    			dispose = [
-    				listen_dev(window, "keydown", /*handleKeydown*/ ctx[5], false, false, false),
-    				listen_dev(div0, "click", /*close*/ ctx[4], false, false, false)
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(window, "keydown", /*handleKeydown*/ ctx[5], false, false, false),
+    					listen_dev(div0, "click", /*close*/ ctx[4], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
-    			if (header_slot && header_slot.p && dirty & /*$$scope*/ 1024) {
-    				header_slot.p(get_slot_context(header_slot_template, ctx, /*$$scope*/ ctx[10], get_header_slot_context), get_slot_changes(header_slot_template, /*$$scope*/ ctx[10], dirty, get_header_slot_changes));
+    			if (header_slot) {
+    				if (header_slot.p && dirty & /*$$scope*/ 256) {
+    					update_slot(header_slot, header_slot_template, ctx, /*$$scope*/ ctx[8], dirty, get_header_slot_changes, get_header_slot_context);
+    				}
     			}
 
-    			if (default_slot && default_slot.p && dirty & /*$$scope*/ 1024) {
-    				default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[10], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[10], dirty, null));
+    			if (default_slot) {
+    				if (default_slot.p && dirty & /*$$scope*/ 256) {
+    					update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[8], dirty, null, null);
+    				}
     			}
 
     			if (/*modalForm*/ ctx[0]) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
-    					transition_in(if_block, 1);
+
+    					if (dirty & /*modalForm*/ 1) {
+    						transition_in(if_block, 1);
+    					}
     				} else {
     					if_block = create_if_block(ctx);
     					if_block.c();
@@ -2056,7 +2179,7 @@ var app = (function () {
 
     			const button_changes = {};
 
-    			if (dirty & /*$$scope*/ 1024) {
+    			if (dirty & /*$$scope*/ 256) {
     				button_changes.$$scope = { dirty, ctx };
     			}
 
@@ -2122,8 +2245,9 @@ var app = (function () {
     			if (default_slot) default_slot.d(detaching);
     			if (if_block) if_block.d();
     			destroy_component(button);
-    			/*div1_binding*/ ctx[9](null);
+    			/*div1_binding*/ ctx[7](null);
     			if (detaching && div1_transition) div1_transition.end();
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -2180,28 +2304,46 @@ var app = (function () {
     	});
 
     	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Modal", $$slots, ['header','default']);
 
     	function div1_binding($$value) {
     		binding_callbacks[$$value ? "unshift" : "push"](() => {
-    			$$invalidate(2, modal = $$value);
+    			modal = $$value;
+    			$$invalidate(2, modal);
     		});
     	}
 
     	$$self.$set = $$props => {
     		if ("modalForm" in $$props) $$invalidate(0, modalForm = $$props.modalForm);
     		if ("modalId" in $$props) $$invalidate(1, modalId = $$props.modalId);
-    		if ("$$scope" in $$props) $$invalidate(10, $$scope = $$props.$$scope);
+    		if ("$$scope" in $$props) $$invalidate(8, $$scope = $$props.$$scope);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { modalForm, modalId, modal };
-    	};
+    	$$self.$capture_state = () => ({
+    		Button,
+    		fly,
+    		quintOut,
+    		createEventDispatcher,
+    		onDestroy,
+    		modalForm,
+    		modalId,
+    		dispatch,
+    		send,
+    		close,
+    		modal,
+    		handleKeydown,
+    		previously_focused
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("modalForm" in $$props) $$invalidate(0, modalForm = $$props.modalForm);
     		if ("modalId" in $$props) $$invalidate(1, modalId = $$props.modalId);
     		if ("modal" in $$props) $$invalidate(2, modal = $$props.modal);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [
     		modalForm,
@@ -2210,8 +2352,6 @@ var app = (function () {
     		send,
     		close,
     		handleKeydown,
-    		dispatch,
-    		previously_focused,
     		$$slots,
     		div1_binding,
     		$$scope
@@ -2248,7 +2388,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalDialog.svelte generated by Svelte v3.18.2 */
+    /* src/components/ModalDialog.svelte generated by Svelte v3.24.0 */
     const file$6 = "src/components/ModalDialog.svelte";
 
     // (23:0) <Button id="modalDialog" on:click={open}>
@@ -2283,9 +2423,10 @@ var app = (function () {
 
     // (25:0) {#if showModal}
     function create_if_block$1(ctx) {
+    	let modal;
     	let current;
 
-    	const modal = new Modal({
+    	modal = new Modal({
     			props: {
     				modalId: "modalDialog",
     				$$slots: {
@@ -2412,11 +2553,12 @@ var app = (function () {
     }
 
     function create_fragment$6(ctx) {
+    	let button;
     	let t;
     	let if_block_anchor;
     	let current;
 
-    	const button = new Button({
+    	button = new Button({
     			props: {
     				id: "modalDialog",
     				$$slots: { default: [create_default_slot_1$1] },
@@ -2457,7 +2599,10 @@ var app = (function () {
     			if (/*showModal*/ ctx[0]) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
-    					transition_in(if_block, 1);
+
+    					if (dirty & /*showModal*/ 1) {
+    						transition_in(if_block, 1);
+    					}
     				} else {
     					if_block = create_if_block$1(ctx);
     					if_block.c();
@@ -2526,6 +2671,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ModalDialog> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("ModalDialog", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("showModal" in $$props) $$invalidate(0, showModal = $$props.showModal);
     		if ("headline" in $$props) $$invalidate(1, headline = $$props.headline);
@@ -2533,9 +2681,18 @@ var app = (function () {
     		if ("btnText" in $$props) $$invalidate(3, btnText = $$props.btnText);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { showModal, headline, body, btnText };
-    	};
+    	$$self.$capture_state = () => ({
+    		Modal,
+    		Button,
+    		createEventDispatcher,
+    		showModal,
+    		headline,
+    		body,
+    		btnText,
+    		dispatch,
+    		open,
+    		close
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("showModal" in $$props) $$invalidate(0, showModal = $$props.showModal);
@@ -2543,6 +2700,10 @@ var app = (function () {
     		if ("body" in $$props) $$invalidate(2, body = $$props.body);
     		if ("btnText" in $$props) $$invalidate(3, btnText = $$props.btnText);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [showModal, headline, body, btnText, open, close];
     }
@@ -2599,14 +2760,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalForm.svelte generated by Svelte v3.18.2 */
+    /* src/components/ModalForm.svelte generated by Svelte v3.24.0 */
     const file$7 = "src/components/ModalForm.svelte";
 
     // (32:0) {#if showModal}
     function create_if_block$2(ctx) {
+    	let modal;
     	let current;
 
-    	const modal = new Modal({
+    	modal = new Modal({
     			props: {
     				modalId: "modalForm",
     				modalForm: /*modalForm*/ ctx[3],
@@ -2708,6 +2870,7 @@ var app = (function () {
     	let t1;
     	let div1;
     	let input1;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -2739,10 +2902,14 @@ var app = (function () {
     			append_dev(div1, input1);
     			set_input_value(input1, /*valueUrl*/ ctx[2]);
 
-    			dispose = [
-    				listen_dev(input0, "input", /*input0_input_handler*/ ctx[10]),
-    				listen_dev(input1, "input", /*input1_input_handler*/ ctx[11])
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(input0, "input", /*input0_input_handler*/ ctx[9]),
+    					listen_dev(input1, "input", /*input1_input_handler*/ ctx[10])
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, dirty) {
     			if (dirty & /*placeholderName*/ 32) {
@@ -2766,6 +2933,7 @@ var app = (function () {
     			if (detaching) detach_dev(div0);
     			if (detaching) detach_dev(t1);
     			if (detaching) detach_dev(div1);
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -2803,7 +2971,10 @@ var app = (function () {
     			if (/*showModal*/ ctx[0]) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
-    					transition_in(if_block, 1);
+
+    					if (dirty & /*showModal*/ 1) {
+    						transition_in(if_block, 1);
+    					}
     				} else {
     					if_block = create_if_block$2(ctx);
     					if_block.c();
@@ -2880,6 +3051,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ModalForm> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("ModalForm", $$slots, []);
+
     	function input0_input_handler() {
     		valueName = this.value;
     		$$invalidate(1, valueName);
@@ -2900,17 +3074,21 @@ var app = (function () {
     		if ("placeholderUrl" in $$props) $$invalidate(6, placeholderUrl = $$props.placeholderUrl);
     	};
 
-    	$$self.$capture_state = () => {
-    		return {
-    			showModal,
-    			modalForm,
-    			headline,
-    			valueName,
-    			valueUrl,
-    			placeholderName,
-    			placeholderUrl
-    		};
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		onDestroy,
+    		Modal,
+    		showModal,
+    		modalForm,
+    		headline,
+    		valueName,
+    		valueUrl,
+    		placeholderName,
+    		placeholderUrl,
+    		dispatch,
+    		sendForm,
+    		close
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("showModal" in $$props) $$invalidate(0, showModal = $$props.showModal);
@@ -2922,6 +3100,10 @@ var app = (function () {
     		if ("placeholderUrl" in $$props) $$invalidate(6, placeholderUrl = $$props.placeholderUrl);
     	};
 
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
     	return [
     		showModal,
     		valueName,
@@ -2932,7 +3114,6 @@ var app = (function () {
     		placeholderUrl,
     		sendForm,
     		close,
-    		dispatch,
     		input0_input_handler,
     		input1_input_handler
     	];
@@ -3017,7 +3198,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/UserInput.svelte generated by Svelte v3.18.2 */
+    /* src/components/UserInput.svelte generated by Svelte v3.24.0 */
     const file$8 = "src/components/UserInput.svelte";
 
     function create_fragment$8(ctx) {
@@ -3027,6 +3208,7 @@ var app = (function () {
     	let t1;
     	let span;
     	let t2;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -3056,10 +3238,14 @@ var app = (function () {
     			append_dev(div, span);
     			append_dev(span, t2);
 
-    			dispose = [
-    				listen_dev(input, "input", /*input_input_handler*/ ctx[3]),
-    				listen_dev(input, "keyup", /*keypress*/ ctx[1], false, false, false)
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(input, "input", /*input_input_handler*/ ctx[2]),
+    					listen_dev(input, "keyup", /*keypress*/ ctx[1], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*userInput*/ 1 && input.value !== /*userInput*/ ctx[0]) {
@@ -3072,6 +3258,7 @@ var app = (function () {
     		o: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div);
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -3101,6 +3288,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<UserInput> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("UserInput", $$slots, []);
+
     	function input_input_handler() {
     		userInput = this.value;
     		$$invalidate(0, userInput);
@@ -3110,15 +3300,22 @@ var app = (function () {
     		if ("userInput" in $$props) $$invalidate(0, userInput = $$props.userInput);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { userInput };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		userInput,
+    		dispatch,
+    		keypress
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("userInput" in $$props) $$invalidate(0, userInput = $$props.userInput);
     	};
 
-    	return [userInput, keypress, dispatch, input_input_handler];
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [userInput, keypress, input_input_handler];
     }
 
     class UserInput extends SvelteComponentDev {
@@ -3143,7 +3340,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/RadioBoxes.svelte generated by Svelte v3.18.2 */
+    /* src/components/RadioBoxes.svelte generated by Svelte v3.24.0 */
     const file$9 = "src/components/RadioBoxes.svelte";
 
     function get_each_context$2(ctx, list, i) {
@@ -3165,6 +3362,7 @@ var app = (function () {
     	let input_title_value;
     	let input_value_value;
     	let t2;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -3191,16 +3389,20 @@ var app = (function () {
     			append_dev(label, input);
     			append_dev(label, t2);
 
-    			dispose = listen_dev(
-    				label,
-    				"click",
-    				function () {
-    					if (is_function(/*setSelection*/ ctx[3](/*selector*/ ctx[5]))) /*setSelection*/ ctx[3](/*selector*/ ctx[5]).apply(this, arguments);
-    				},
-    				false,
-    				false,
-    				false
-    			);
+    			if (!mounted) {
+    				dispose = listen_dev(
+    					label,
+    					"click",
+    					function () {
+    						if (is_function(/*setSelection*/ ctx[3](/*selector*/ ctx[5]))) /*setSelection*/ ctx[3](/*selector*/ ctx[5]).apply(this, arguments);
+    					},
+    					false,
+    					false,
+    					false
+    				);
+
+    				mounted = true;
+    			}
     		},
     		p: function update(new_ctx, dirty) {
     			ctx = new_ctx;
@@ -3224,6 +3426,7 @@ var app = (function () {
     		},
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(label);
+    			mounted = false;
     			dispose();
     		}
     	};
@@ -3251,6 +3454,7 @@ var app = (function () {
     	let t3;
     	let html_tag;
     	let each_value = /*selections*/ ctx[0];
+    	validate_each_argument(each_value);
     	let each_blocks = [];
 
     	for (let i = 0; i < each_value.length; i += 1) {
@@ -3276,7 +3480,7 @@ var app = (function () {
     			add_location(fieldset, file$9, 40, 4, 826);
     			attr_dev(div0, "class", "svelte-1jlio2l");
     			add_location(div0, file$9, 39, 2, 816);
-    			html_tag = new HtmlTag(/*information*/ ctx[2], null);
+    			html_tag = new HtmlTag(null);
     			attr_dev(div1, "class", "svelte-1jlio2l");
     			add_location(div1, file$9, 56, 2, 1228);
     			attr_dev(div2, "class", "selection-container svelte-1jlio2l");
@@ -3299,11 +3503,12 @@ var app = (function () {
     			append_dev(div1, t1);
     			append_dev(div1, t2);
     			append_dev(div1, t3);
-    			html_tag.m(div1);
+    			html_tag.m(/*information*/ ctx[2], div1);
     		},
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*current, selections, setSelection*/ 11) {
     				each_value = /*selections*/ ctx[0];
+    				validate_each_argument(each_value);
     				let i;
 
     				for (i = 0; i < each_value.length; i += 1) {
@@ -3366,19 +3571,31 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<RadioBoxes> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("RadioBoxes", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("selections" in $$props) $$invalidate(0, selections = $$props.selections);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { selections, current, information };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		selections,
+    		dispatch,
+    		current,
+    		information,
+    		setSelection
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("selections" in $$props) $$invalidate(0, selections = $$props.selections);
     		if ("current" in $$props) $$invalidate(1, current = $$props.current);
     		if ("information" in $$props) $$invalidate(2, information = $$props.information);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [selections, current, information, setSelection];
     }
@@ -3405,11 +3622,12 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Contenteditable.svelte generated by Svelte v3.18.2 */
+    /* src/components/Contenteditable.svelte generated by Svelte v3.24.0 */
     const file$a = "src/components/Contenteditable.svelte";
 
     function create_fragment$a(ctx) {
     	let div;
+    	let mounted;
     	let dispose;
 
     	const block = {
@@ -3417,7 +3635,7 @@ var app = (function () {
     			div = element("div");
     			attr_dev(div, "class", "contentBox svelte-1yv2dil");
     			attr_dev(div, "contenteditable", "true");
-    			if (/*content*/ ctx[0] === void 0) add_render_callback(() => /*div_input_handler*/ ctx[3].call(div));
+    			if (/*content*/ ctx[0] === void 0) add_render_callback(() => /*div_input_handler*/ ctx[2].call(div));
     			add_location(div, file$a, 19, 0, 359);
     		},
     		l: function claim(nodes) {
@@ -3430,10 +3648,14 @@ var app = (function () {
     				div.textContent = /*content*/ ctx[0];
     			}
 
-    			dispose = [
-    				listen_dev(div, "input", /*div_input_handler*/ ctx[3]),
-    				listen_dev(div, "keyup", /*keypress*/ ctx[1], false, false, false)
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(div, "input", /*div_input_handler*/ ctx[2]),
+    					listen_dev(div, "keyup", /*keypress*/ ctx[1], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
     			if (dirty & /*content*/ 1 && /*content*/ ctx[0] !== div.textContent) {
@@ -3444,6 +3666,7 @@ var app = (function () {
     		o: noop,
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(div);
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -3469,6 +3692,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Contenteditable> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Contenteditable", $$slots, []);
+
     	function div_input_handler() {
     		content = this.textContent;
     		$$invalidate(0, content);
@@ -3478,15 +3704,22 @@ var app = (function () {
     		if ("content" in $$props) $$invalidate(0, content = $$props.content);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { content };
-    	};
+    	$$self.$capture_state = () => ({
+    		createEventDispatcher,
+    		content,
+    		dispatch,
+    		keypress
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("content" in $$props) $$invalidate(0, content = $$props.content);
     	};
 
-    	return [content, keypress, dispatch, div_input_handler];
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [content, keypress, div_input_handler];
     }
 
     class Contenteditable extends SvelteComponentDev {
@@ -3511,7 +3744,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Profile.svelte generated by Svelte v3.18.2 */
+    /* src/components/Profile.svelte generated by Svelte v3.24.0 */
     const file$b = "src/components/Profile.svelte";
 
     // (52:0) {#if visible}
@@ -3643,7 +3876,10 @@ var app = (function () {
     			if (/*visible*/ ctx[5]) {
     				if (if_block) {
     					if_block.p(ctx, dirty);
-    					transition_in(if_block, 1);
+
+    					if (dirty & /*visible*/ 32) {
+    						transition_in(if_block, 1);
+    					}
     				} else {
     					if_block = create_if_block$3(ctx);
     					if_block.c();
@@ -3713,10 +3949,28 @@ var app = (function () {
     	}
 
     	onMount(loadData);
+    	const writable_props = [];
 
-    	$$self.$capture_state = () => {
-    		return {};
-    	};
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Profile> was created with unknown prop '${key}'`);
+    	});
+
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("Profile", $$slots, []);
+
+    	$$self.$capture_state = () => ({
+    		onMount,
+    		fade,
+    		name,
+    		email,
+    		nameOrg,
+    		emailOrg,
+    		thumbnail,
+    		visible,
+    		maxlength,
+    		shortenString,
+    		loadData
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("name" in $$props) $$invalidate(0, name = $$props.name);
@@ -3726,6 +3980,10 @@ var app = (function () {
     		if ("thumbnail" in $$props) $$invalidate(4, thumbnail = $$props.thumbnail);
     		if ("visible" in $$props) $$invalidate(5, visible = $$props.visible);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [name, email, nameOrg, emailOrg, thumbnail, visible];
     }
@@ -3744,7 +4002,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/EventLog.svelte generated by Svelte v3.18.2 */
+    /* src/components/EventLog.svelte generated by Svelte v3.24.0 */
 
     const file$c = "src/components/EventLog.svelte";
 
@@ -3842,19 +4100,24 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<EventLog> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("EventLog", $$slots, []);
+
     	$$self.$set = $$props => {
     		if ("showLogs" in $$props) $$invalidate(0, showLogs = $$props.showLogs);
     		if ("logs" in $$props) $$invalidate(1, logs = $$props.logs);
     	};
 
-    	$$self.$capture_state = () => {
-    		return { showLogs, logs };
-    	};
+    	$$self.$capture_state = () => ({ showLogs, logs });
 
     	$$self.$inject_state = $$props => {
     		if ("showLogs" in $$props) $$invalidate(0, showLogs = $$props.showLogs);
     		if ("logs" in $$props) $$invalidate(1, logs = $$props.logs);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [showLogs, logs];
     }
@@ -3891,23 +4154,32 @@ var app = (function () {
     	}
     }
 
-    /* src/App.svelte generated by Svelte v3.18.2 */
+    /* src/App.svelte generated by Svelte v3.24.0 */
     const file$d = "src/App.svelte";
 
     function create_fragment$d(ctx) {
     	let div6;
     	let div0;
+    	let headline;
     	let t0;
     	let div3;
     	let div1;
+    	let list_1;
     	let t1;
+    	let userinput;
     	let t2;
+    	let contenteditable;
     	let t3;
+    	let modaldialog;
     	let t4;
+    	let modalform;
     	let t5;
     	let div2;
+    	let table_1;
     	let t6;
+    	let radioboxes;
     	let t7;
+    	let profile;
     	let t8;
     	let div5;
     	let div4;
@@ -3917,10 +4189,12 @@ var app = (function () {
     	let t12_value = (/*$elapsed*/ ctx[14] === 1 ? "second" : "seconds") + "";
     	let t12;
     	let t13;
+    	let eventlog;
     	let current;
+    	let mounted;
     	let dispose;
 
-    	const headline = new Headline({
+    	headline = new Headline({
     			props: {
     				message: /*message*/ ctx[0],
     				itemId: /*itemId*/ ctx[1]
@@ -3928,7 +4202,7 @@ var app = (function () {
     			$$inline: true
     		});
 
-    	const list_1 = new List({
+    	list_1 = new List({
     			props: {
     				list: /*list*/ ctx[2],
     				currentItem: /*currentItem*/ ctx[4]
@@ -3937,21 +4211,21 @@ var app = (function () {
     		});
 
     	list_1.$on("select", /*listSelection*/ ctx[15]);
-    	list_1.$on("edit", /*edit_handler*/ ctx[21]);
+    	list_1.$on("edit", /*edit_handler*/ ctx[20]);
 
-    	const userinput = new UserInput({
+    	userinput = new UserInput({
     			props: { userInput: /*userInput*/ ctx[5] },
     			$$inline: true
     		});
 
-    	userinput.$on("input", /*input_handler*/ ctx[22]);
+    	userinput.$on("input", /*input_handler*/ ctx[21]);
 
-    	const contenteditable = new Contenteditable({
+    	contenteditable = new Contenteditable({
     			props: { content: "This content is editable." },
     			$$inline: true
     		});
 
-    	contenteditable.$on("input", /*input_handler_1*/ ctx[23]);
+    	contenteditable.$on("input", /*input_handler_1*/ ctx[22]);
     	const modaldialog_spread_levels = [/*modalDialog*/ ctx[6]];
     	let modaldialog_props = {};
 
@@ -3959,10 +4233,10 @@ var app = (function () {
     		modaldialog_props = assign(modaldialog_props, modaldialog_spread_levels[i]);
     	}
 
-    	const modaldialog = new ModalDialog({ props: modaldialog_props, $$inline: true });
-    	modaldialog.$on("close", /*close_handler*/ ctx[24]);
+    	modaldialog = new ModalDialog({ props: modaldialog_props, $$inline: true });
+    	modaldialog.$on("close", /*close_handler*/ ctx[23]);
 
-    	const modalform = new ModalForm({
+    	modalform = new ModalForm({
     			props: {
     				showModal: /*showFormModal*/ ctx[8],
     				valueName: /*valueName*/ ctx[10],
@@ -3972,9 +4246,9 @@ var app = (function () {
     		});
 
     	modalform.$on("sendForm", /*sendForm*/ ctx[17]);
-    	modalform.$on("close", /*close_handler_1*/ ctx[25]);
+    	modalform.$on("close", /*close_handler_1*/ ctx[24]);
 
-    	const table_1 = new Table({
+    	table_1 = new Table({
     			props: {
     				selected: /*selected*/ ctx[9],
     				data: /*table*/ ctx[3]
@@ -3984,15 +4258,15 @@ var app = (function () {
 
     	table_1.$on("clickedRow", /*handleClickedRow*/ ctx[16]);
 
-    	const radioboxes = new RadioBoxes({
+    	radioboxes = new RadioBoxes({
     			props: { selections: /*selections*/ ctx[7] },
     			$$inline: true
     		});
 
     	radioboxes.$on("select", /*handleEvent*/ ctx[18]);
-    	const profile = new Profile({ $$inline: true });
+    	profile = new Profile({ $$inline: true });
 
-    	const eventlog = new EventLog({
+    	eventlog = new EventLog({
     			props: {
     				showLogs: /*showLogs*/ ctx[12],
     				logs: /*logs*/ ctx[13]
@@ -4084,11 +4358,15 @@ var app = (function () {
     			mount_component(eventlog, div6, null);
     			current = true;
 
-    			dispose = [
-    				listen_dev(window, "mousemove", /*handleUserEvent*/ ctx[19], false, false, false),
-    				listen_dev(window, "click", /*handleUserEvent*/ ctx[19], false, false, false),
-    				listen_dev(window, "keydown", /*handleUserEvent*/ ctx[19], false, false, false)
-    			];
+    			if (!mounted) {
+    				dispose = [
+    					listen_dev(window, "mousemove", /*handleUserEvent*/ ctx[19], false, false, false),
+    					listen_dev(window, "click", /*handleUserEvent*/ ctx[19], false, false, false),
+    					listen_dev(window, "keydown", /*handleUserEvent*/ ctx[19], false, false, false)
+    				];
+
+    				mounted = true;
+    			}
     		},
     		p: function update(ctx, [dirty]) {
     			const headline_changes = {};
@@ -4166,6 +4444,7 @@ var app = (function () {
     			destroy_component(radioboxes);
     			destroy_component(profile);
     			destroy_component(eventlog);
+    			mounted = false;
     			run_all(dispose);
     		}
     	};
@@ -4227,6 +4506,9 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<App> was created with unknown prop '${key}'`);
     	});
 
+    	let { $$slots = {}, $$scope } = $$props;
+    	validate_slots("App", $$slots, []);
+
     	function edit_handler(event) {
     		bubble($$self, event);
     	}
@@ -4264,25 +4546,41 @@ var app = (function () {
     		if ("logs" in $$props) $$invalidate(13, logs = $$props.logs);
     	};
 
-    	$$self.$capture_state = () => {
-    		return {
-    			message,
-    			itemId,
-    			list,
-    			table,
-    			currentItem,
-    			userInput,
-    			modalDialog,
-    			selections,
-    			showFormModal,
-    			selected,
-    			valueName,
-    			valueUrl,
-    			showLogs,
-    			logs,
-    			$elapsed
-    		};
-    	};
+    	$$self.$capture_state = () => ({
+    		elapsed,
+    		createEventDispatcher,
+    		Headline,
+    		List,
+    		Table,
+    		ModalDialog,
+    		ModalForm,
+    		UserInput,
+    		RadioBoxes,
+    		Contenteditable,
+    		Profile,
+    		EventLog,
+    		message,
+    		itemId,
+    		list,
+    		table,
+    		currentItem,
+    		userInput,
+    		modalDialog,
+    		selections,
+    		showFormModal,
+    		selected,
+    		valueName,
+    		valueUrl,
+    		showLogs,
+    		logs,
+    		dispatch,
+    		listSelection,
+    		handleClickedRow,
+    		sendForm,
+    		handleEvent,
+    		handleUserEvent,
+    		$elapsed
+    	});
 
     	$$self.$inject_state = $$props => {
     		if ("message" in $$props) $$invalidate(0, message = $$props.message);
@@ -4299,8 +4597,11 @@ var app = (function () {
     		if ("valueUrl" in $$props) $$invalidate(11, valueUrl = $$props.valueUrl);
     		if ("showLogs" in $$props) $$invalidate(12, showLogs = $$props.showLogs);
     		if ("logs" in $$props) $$invalidate(13, logs = $$props.logs);
-    		if ("$elapsed" in $$props) elapsed.set($elapsed = $$props.$elapsed);
     	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
 
     	return [
     		message,
@@ -4323,7 +4624,6 @@ var app = (function () {
     		sendForm,
     		handleEvent,
     		handleUserEvent,
-    		dispatch,
     		edit_handler,
     		input_handler,
     		input_handler_1,
