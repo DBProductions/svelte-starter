@@ -1,12 +1,13 @@
 # svelte-starter  
 
 Starter repository for the cybernetically enhanced web apps.  
-Works with Svelte v3.0.0 and NodeJS v12.0.0.  
-Prettier for code formatting and Cypress for end-to-end testing.  
+Works with Svelte v3.32.3 and NodeJS v14.15.5 (with npm@6.14.11).  
+[Prettier](https://prettier.io/) for code formatting and [Cypress](https://www.cypress.io/) for end-to-end testing.  
+[Rollup](https://rollupjs.org/) as module bundler and [Volta](https://volta.sh/) as tool manager.  
 
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
-[Awesome Svelte](https://github.com/flagello/awesome-sveltejs)  
+[Awesome Svelte](https://github.com/flagello/awesome-sveltejs)    
 
 This starter repository is only a simple example, the project template got adjusted!  
 No generator or guide how to use Svelte or how to organize your code.  

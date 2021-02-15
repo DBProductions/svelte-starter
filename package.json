@@ -11,6 +11,10 @@
     "type": "git",
     "url": "https://github.com/DBProductions/svelte-starter"
   },
+  "volta": {
+    "node": "14.15.5",
+    "npm": "7.5.4"
+  },
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.1.0",
