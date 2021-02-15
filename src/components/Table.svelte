@@ -6,7 +6,7 @@
 
   const dispatch = createEventDispatcher()
 
-  const handleClick = entry => dispatch('clickedRow', entry)
+  const handleClick = (entry) => dispatch('clickedRow', entry)
 </script>
 
 <style>

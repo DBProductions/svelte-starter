@@ -17,7 +17,9 @@
   }
 
   async function loadData() {
-    let userData = await fetch(`https://randomuser.me/api/`).then(r => r.json())
+    let userData = await fetch(`https://randomuser.me/api/`).then((r) =>
+      r.json()
+    )
     nameOrg = `${userData.results[0].name.title} ${userData.results[0].name.first} ${userData.results[0].name.last}`
     emailOrg = userData.results[0].email
     name = shortenString(nameOrg, maxlength)

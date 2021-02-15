@@ -7,9 +7,9 @@
   let current = ''
   let information = '<p>Nothing to display.</p>'
 
-  const setSelection = selector => {
+  const setSelection = (selector) => {
     current = selector
-    const item = selections.find(o => o.selector === selector)
+    const item = selections.find((o) => o.selector === selector)
     information = item.text
     dispatch('select', { current })
   }

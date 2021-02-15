@@ -14,14 +14,14 @@
 
   let modal
 
-  const handleKeydown = e => {
+  const handleKeydown = (e) => {
     if (e.key === 'Escape') {
       close()
       return
     }
     if (e.key === 'Tab') {
       const nodes = modal.querySelectorAll('*')
-      const tabbable = Array.from(nodes).filter(n => n.tabIndex >= 0)
+      const tabbable = Array.from(nodes).filter((n) => n.tabIndex >= 0)
       let index = tabbable.indexOf(document.activeElement)
       if (index === -1 && e.shiftKey) index = 0
       index += tabbable.length + (e.shiftKey ? -1 : 1)

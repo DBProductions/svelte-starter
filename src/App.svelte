@@ -30,11 +30,11 @@
 
   const dispatch = createEventDispatcher()
 
-  const listSelection = event => dispatch('listSelection', event.detail.item)
-  const handleClickedRow = event => dispatch('handleClickedRow', event.detail)
-  const sendForm = event => dispatch('sendForm', event.detail)
-  const handleEvent = event => dispatch('handleEvent', event.detail)
-  const handleUserEvent = event => dispatch('handleUserEvent', event.detail)
+  const listSelection = (event) => dispatch('listSelection', event.detail.item)
+  const handleClickedRow = (event) => dispatch('handleClickedRow', event.detail)
+  const sendForm = (event) => dispatch('sendForm', event.detail)
+  const handleEvent = (event) => dispatch('handleEvent', event.detail)
+  const handleUserEvent = (event) => dispatch('handleUserEvent', event.detail)
 </script>
 
 <style>

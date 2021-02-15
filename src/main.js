@@ -7,7 +7,7 @@ const app = new App({
   props: appProps,
 })
 
-const logEvent = event => {
+const logEvent = (event) => {
   //let logs = (app.logs) ? app.logs + '\n' + JSON.stringify(event) : JSON.stringify(event);
   app.$set({
     logs: app.logs
@@ -19,14 +19,14 @@ const logEvent = event => {
   ).scrollHeight
 }
 
-app.$on('listSelection', event => {
+app.$on('listSelection', (event) => {
   app.$set({ message: `Clicked item ${event.detail.name}` })
   app.$set({ itemId: `Id: ${event.detail.id}` })
   app.$set({ selected: event.detail.name })
   logEvent(event.detail)
 })
 
-app.$on('handleClickedRow', event => {
+app.$on('handleClickedRow', (event) => {
   app.$set({ message: `Clicked item ${event.detail.name}` })
   app.$set({ itemId: `Id: ${event.detail.id}` })
   app.$set({ selected: event.detail.name })
@@ -34,31 +34,31 @@ app.$on('handleClickedRow', event => {
   logEvent(event.detail)
 })
 
-app.$on('edit', event => {
+app.$on('edit', (event) => {
   app.$set({ valueName: event.detail.item.name })
   app.$set({ valueUrl: event.detail.item.url })
   app.$set({ showFormModal: true })
   logEvent(event.detail)
 })
 
-app.$on('close', event => {
+app.$on('close', (event) => {
   app.$set({ showFormModal: false })
   logEvent(event.detail)
 })
 
-app.$on('handleEvent', event => {
+app.$on('handleEvent', (event) => {
   logEvent(event.detail)
 })
 
-app.$on('input', event => {
+app.$on('input', (event) => {
   logEvent(event.detail)
 })
 
-app.$on('handleUserEvent', event => {
+app.$on('handleUserEvent', (event) => {
   userActivity(event)
 })
 
-app.$on('sendForm', event => {
+app.$on('sendForm', (event) => {
   app.$set({ showFormModal: false })
   logEvent(event.detail)
 })

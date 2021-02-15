@@ -16,6 +16,6 @@ export const userActivity = () => {
   start = new Date()
 }
 
-export const elapsed = derived(time, $time =>
+export const elapsed = derived(time, ($time) =>
   Math.round(($time - start) / 1000)
 )

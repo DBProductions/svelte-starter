@@ -7,7 +7,7 @@
 
   const dispatch = createEventDispatcher()
 
-  const select = event => {
+  const select = (event) => {
     currentItem = event.detail.item.id
     dispatch('select', event.detail)
   }

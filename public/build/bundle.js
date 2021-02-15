@@ -31,6 +31,9 @@ var app = (function () {
     function safe_not_equal(a, b) {
         return a != a ? b == b : a !== b || ((a && typeof a === 'object') || typeof a === 'function');
     }
+    function is_empty(obj) {
+        return Object.keys(obj).length === 0;
+    }
     function validate_store(store, name) {
         if (store != null && typeof store.subscribe !== 'function') {
             throw new Error(`'${name}' is not a store with a 'subscribe' method`);
@@ -232,7 +235,7 @@ var app = (function () {
             stylesheet.insertRule(`@keyframes ${name} ${rule}`, stylesheet.cssRules.length);
         }
         const animation = node.style.animation || '';
-        node.style.animation = `${animation ? `${animation}, ` : ``}${name} ${duration}ms linear ${delay}ms 1 both`;
+        node.style.animation = `${animation ? `${animation}, ` : ''}${name} ${duration}ms linear ${delay}ms 1 both`;
         active += 1;
         return name;
     }
@@ -271,7 +274,7 @@ var app = (function () {
     }
     function get_current_component() {
         if (!current_component)
-            throw new Error(`Function called outside component initialization`);
+            throw new Error('Function called outside component initialization');
         return current_component;
     }
     function onMount(fn) {
@@ -333,6 +336,7 @@ var app = (function () {
                 set_current_component(component);
                 update(component.$$);
             }
+            set_current_component(null);
             dirty_components.length = 0;
             while (binding_callbacks.length)
                 binding_callbacks.pop()();
@@ -452,7 +456,7 @@ var app = (function () {
                 program.group = outros;
                 outros.r += 1;
             }
-            if (running_program) {
+            if (running_program || pending_program) {
                 pending_program = program;
             }
             else {
@@ -523,6 +527,12 @@ var app = (function () {
             }
         };
     }
+
+    const globals = (typeof window !== 'undefined'
+        ? window
+        : typeof globalThis !== 'undefined'
+            ? globalThis
+            : global);
 
     function get_spread_update(levels, updates) {
         const update = {};
@@ -603,7 +613,6 @@ var app = (function () {
     function init(component, options, instance, create_fragment, not_equal, props, dirty = [-1]) {
         const parent_component = current_component;
         set_current_component(component);
-        const prop_values = options.props || {};
         const $$ = component.$$ = {
             fragment: null,
             ctx: null,
@@ -620,14 +629,15 @@ var app = (function () {
             context: new Map(parent_component ? parent_component.$$.context : []),
             // everything else
             callbacks: blank_object(),
-            dirty
+            dirty,
+            skip_bound: false
         };
         let ready = false;
         $$.ctx = instance
-            ? instance(component, prop_values, (i, ret, ...rest) => {
+            ? instance(component, options.props || {}, (i, ret, ...rest) => {
                 const value = rest.length ? rest[0] : ret;
                 if ($$.ctx && not_equal($$.ctx[i], $$.ctx[i] = value)) {
-                    if ($$.bound[i])
+                    if (!$$.skip_bound && $$.bound[i])
                         $$.bound[i](value);
                     if (ready)
                         make_dirty(component, i);
@@ -658,6 +668,9 @@ var app = (function () {
         }
         set_current_component(parent_component);
     }
+    /**
+     * Base class for Svelte components. Used when dev=false.
+     */
     class SvelteComponent {
         $destroy() {
             destroy_component(this, 1);
@@ -672,55 +685,59 @@ var app = (function () {
                     callbacks.splice(index, 1);
             };
         }
-        $set() {
-            // overridden by instance, if it has props
+        $set($$props) {
+            if (this.$$set && !is_empty($$props)) {
+                this.$$.skip_bound = true;
+                this.$$set($$props);
+                this.$$.skip_bound = false;
+            }
         }
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.24.0' }, detail)));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.32.3' }, detail)));
     }
     function append_dev(target, node) {
-        dispatch_dev("SvelteDOMInsert", { target, node });
+        dispatch_dev('SvelteDOMInsert', { target, node });
         append(target, node);
     }
     function insert_dev(target, node, anchor) {
-        dispatch_dev("SvelteDOMInsert", { target, node, anchor });
+        dispatch_dev('SvelteDOMInsert', { target, node, anchor });
         insert(target, node, anchor);
     }
     function detach_dev(node) {
-        dispatch_dev("SvelteDOMRemove", { node });
+        dispatch_dev('SvelteDOMRemove', { node });
         detach(node);
     }
     function listen_dev(node, event, handler, options, has_prevent_default, has_stop_propagation) {
-        const modifiers = options === true ? ["capture"] : options ? Array.from(Object.keys(options)) : [];
+        const modifiers = options === true ? ['capture'] : options ? Array.from(Object.keys(options)) : [];
         if (has_prevent_default)
             modifiers.push('preventDefault');
         if (has_stop_propagation)
             modifiers.push('stopPropagation');
-        dispatch_dev("SvelteDOMAddEventListener", { node, event, handler, modifiers });
+        dispatch_dev('SvelteDOMAddEventListener', { node, event, handler, modifiers });
         const dispose = listen(node, event, handler, options);
         return () => {
-            dispatch_dev("SvelteDOMRemoveEventListener", { node, event, handler, modifiers });
+            dispatch_dev('SvelteDOMRemoveEventListener', { node, event, handler, modifiers });
             dispose();
         };
     }
     function attr_dev(node, attribute, value) {
         attr(node, attribute, value);
         if (value == null)
-            dispatch_dev("SvelteDOMRemoveAttribute", { node, attribute });
+            dispatch_dev('SvelteDOMRemoveAttribute', { node, attribute });
         else
-            dispatch_dev("SvelteDOMSetAttribute", { node, attribute, value });
+            dispatch_dev('SvelteDOMSetAttribute', { node, attribute, value });
     }
     function prop_dev(node, property, value) {
         node[property] = value;
-        dispatch_dev("SvelteDOMSetProperty", { node, property, value });
+        dispatch_dev('SvelteDOMSetProperty', { node, property, value });
     }
     function set_data_dev(text, data) {
         data = '' + data;
         if (text.wholeText === data)
             return;
-        dispatch_dev("SvelteDOMSetData", { node: text, data });
+        dispatch_dev('SvelteDOMSetData', { node: text, data });
         text.data = data;
     }
     function validate_each_argument(arg) {
@@ -739,17 +756,20 @@ var app = (function () {
             }
         }
     }
+    /**
+     * Base class for Svelte components with some minor dev-enhancements. Used when dev=true.
+     */
     class SvelteComponentDev extends SvelteComponent {
         constructor(options) {
             if (!options || (!options.target && !options.$$inline)) {
-                throw new Error(`'target' is a required option`);
+                throw new Error("'target' is a required option");
             }
             super();
         }
         $destroy() {
             super.$destroy();
             this.$destroy = () => {
-                console.warn(`Component was already destroyed`); // eslint-disable-line no-console
+                console.warn('Component was already destroyed'); // eslint-disable-line no-console
             };
         }
         $capture_state() { }
@@ -764,7 +784,7 @@ var app = (function () {
      */
     function readable(value, start) {
         return {
-            subscribe: writable(value, start).subscribe,
+            subscribe: writable(value, start).subscribe
         };
     }
     /**
@@ -875,13 +895,20 @@ var app = (function () {
       start = new Date();
     };
 
-    const elapsed = derived(time, $time =>
+    const elapsed = derived(time, ($time) =>
       Math.round(($time - start) / 1000)
     );
 
-    /* src/components/Headline.svelte generated by Svelte v3.24.0 */
+    /* src/components/Headline.svelte generated by Svelte v3.32.3 */
 
     const file = "src/components/Headline.svelte";
+
+    function add_css() {
+    	var style = element("style");
+    	style.id = "svelte-1pe6e7k-style";
+    	style.textContent = "h1.svelte-1pe6e7k.svelte-1pe6e7k{font-size:24pt}h1.svelte-1pe6e7k>small.svelte-1pe6e7k{font-size:12pt;color:#bbb}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiSGVhZGxpbmUuc3ZlbHRlIiwic291cmNlcyI6WyJIZWFkbGluZS5zdmVsdGUiXSwic291cmNlc0NvbnRlbnQiOlsiPHNjcmlwdD5cbiAgZXhwb3J0IGxldCBtZXNzYWdlID0gJydcbiAgZXhwb3J0IGxldCBpdGVtSWQgPSAnJ1xuPC9zY3JpcHQ+XG5cbjxzdHlsZT5cbiAgaDEge1xuICAgIGZvbnQtc2l6ZTogMjRwdDtcbiAgfVxuICBoMSA+IHNtYWxsIHtcbiAgICBmb250LXNpemU6IDEycHQ7XG4gICAgY29sb3I6ICNiYmI7XG4gIH1cbjwvc3R5bGU+XG5cbjxoMT5cbiAge21lc3NhZ2V9XG4gIDxzbWFsbD57aXRlbUlkfTwvc21hbGw+XG48L2gxPlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQU1FLEVBQUUsOEJBQUMsQ0FBQyxBQUNGLFNBQVMsQ0FBRSxJQUFJLEFBQ2pCLENBQUMsQUFDRCxpQkFBRSxDQUFHLEtBQUssZUFBQyxDQUFDLEFBQ1YsU0FBUyxDQUFFLElBQUksQ0FDZixLQUFLLENBQUUsSUFBSSxBQUNiLENBQUMifQ== */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment(ctx) {
     	let h1;
@@ -935,6 +962,8 @@ var app = (function () {
     }
 
     function instance($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Headline", slots, []);
     	let { message = "" } = $$props;
     	let { itemId = "" } = $$props;
     	const writable_props = ["message", "itemId"];
@@ -943,10 +972,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Headline> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Headline", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("message" in $$props) $$invalidate(0, message = $$props.message);
     		if ("itemId" in $$props) $$invalidate(1, itemId = $$props.itemId);
     	};
@@ -968,6 +994,7 @@ var app = (function () {
     class Headline extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1pe6e7k-style")) add_css();
     		init(this, options, instance, create_fragment, safe_not_equal, { message: 0, itemId: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -995,8 +1022,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ListItem.svelte generated by Svelte v3.24.0 */
+    /* src/components/ListItem.svelte generated by Svelte v3.32.3 */
     const file$1 = "src/components/ListItem.svelte";
+
+    function add_css$1() {
+    	var style = element("style");
+    	style.id = "svelte-1uc8yr0-style";
+    	style.textContent = "li.svelte-1uc8yr0{border:1px solid #ddd;border-radius:3px 3px 3px 3px;margin-bottom:3px;padding:9px;font-size:12pt;cursor:pointer}.active.svelte-1uc8yr0{background-color:#bbb}li.svelte-1uc8yr0:hover{border:1px solid #aaa}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiTGlzdEl0ZW0uc3ZlbHRlIiwic291cmNlcyI6WyJMaXN0SXRlbS5zdmVsdGUiXSwic291cmNlc0NvbnRlbnQiOlsiPHNjcmlwdD5cbiAgaW1wb3J0IHsgY3JlYXRlRXZlbnREaXNwYXRjaGVyIH0gZnJvbSAnc3ZlbHRlJ1xuXG4gIGV4cG9ydCBsZXQgaXRlbSA9IHsgaWQ6IDAsIG5hbWU6ICcnIH1cbiAgZXhwb3J0IGxldCBjdXJyZW50SXRlbSA9IDBcblxuICBjb25zdCBkaXNwYXRjaCA9IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlcigpXG5cbiAgY29uc3Qgc2VsZWN0ID0gKCkgPT4gZGlzcGF0Y2goJ3NlbGVjdCcsIHsgaXRlbTogaXRlbSB9KVxuICBjb25zdCBlZGl0ID0gKCkgPT4gZGlzcGF0Y2goJ2VkaXQnLCB7IGl0ZW06IGl0ZW0gfSlcbjwvc2NyaXB0PlxuXG48c3R5bGU+XG4gIGxpIHtcbiAgICBib3JkZXI6IDFweCBzb2xpZCAjZGRkO1xuICAgIGJvcmRlci1yYWRpdXM6IDNweCAzcHggM3B4IDNweDtcbiAgICBtYXJnaW4tYm90dG9tOiAzcHg7XG4gICAgcGFkZGluZzogOXB4O1xuICAgIGZvbnQtc2l6ZTogMTJwdDtcbiAgICBjdXJzb3I6IHBvaW50ZXI7XG4gIH1cbiAgLmFjdGl2ZSB7XG4gICAgYmFja2dyb3VuZC1jb2xvcjogI2JiYjtcbiAgfVxuICBsaTpob3ZlciB7XG4gICAgYm9yZGVyOiAxcHggc29saWQgI2FhYTtcbiAgfVxuPC9zdHlsZT5cblxuPGxpIGNsYXNzOmFjdGl2ZT17Y3VycmVudEl0ZW0gPT09IGl0ZW0uaWR9PlxuICA8ZGl2IHN0eWxlPVwiZmxvYXQ6cmlnaHQ7XCI+XG4gICAgPGJ1dHR0b24gb246Y2xpY2s9e2VkaXQoaXRlbSl9PkVkaXQ8L2J1dHR0b24+XG4gIDwvZGl2PlxuICA8ZGl2IG9uOmNsaWNrPXtzZWxlY3QoaXRlbSl9PlxuICAgIHtpdGVtLm5hbWV9IC1cbiAgICA8c21hbGw+e2l0ZW0udXJsfTwvc21hbGw+XG4gIDwvZGl2PlxuPC9saT5cbiJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUFhRSxFQUFFLGVBQUMsQ0FBQyxBQUNGLE1BQU0sQ0FBRSxHQUFHLENBQUMsS0FBSyxDQUFDLElBQUksQ0FDdEIsYUFBYSxDQUFFLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FDOUIsYUFBYSxDQUFFLEdBQUcsQ0FDbEIsT0FBTyxDQUFFLEdBQUcsQ0FDWixTQUFTLENBQUUsSUFBSSxDQUNmLE1BQU0sQ0FBRSxPQUFPLEFBQ2pCLENBQUMsQUFDRCxPQUFPLGVBQUMsQ0FBQyxBQUNQLGdCQUFnQixDQUFFLElBQUksQUFDeEIsQ0FBQyxBQUNELGlCQUFFLE1BQU0sQUFBQyxDQUFDLEFBQ1IsTUFBTSxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxBQUN4QixDQUFDIn0= */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment$1(ctx) {
     	let li;
@@ -1105,6 +1139,8 @@ var app = (function () {
     }
 
     function instance$1($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("ListItem", slots, []);
     	let { item = { id: 0, name: "" } } = $$props;
     	let { currentItem = 0 } = $$props;
     	const dispatch = createEventDispatcher();
@@ -1116,10 +1152,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ListItem> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("ListItem", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("item" in $$props) $$invalidate(0, item = $$props.item);
     		if ("currentItem" in $$props) $$invalidate(1, currentItem = $$props.currentItem);
     	};
@@ -1148,6 +1181,7 @@ var app = (function () {
     class ListItem extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1uc8yr0-style")) add_css$1();
     		init(this, options, instance$1, create_fragment$1, safe_not_equal, { item: 0, currentItem: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -1175,8 +1209,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/List.svelte generated by Svelte v3.24.0 */
+    /* src/components/List.svelte generated by Svelte v3.32.3 */
     const file$2 = "src/components/List.svelte";
+
+    function add_css$2() {
+    	var style = element("style");
+    	style.id = "svelte-xl8b5k-style";
+    	style.textContent = "ul.svelte-xl8b5k{list-style:none;margin:0px;padding:0px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiTGlzdC5zdmVsdGUiLCJzb3VyY2VzIjpbIkxpc3Quc3ZlbHRlIl0sInNvdXJjZXNDb250ZW50IjpbIjxzY3JpcHQ+XG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcbiAgaW1wb3J0IExpc3RJdGVtIGZyb20gJy4vTGlzdEl0ZW0uc3ZlbHRlJ1xuXG4gIGV4cG9ydCBsZXQgbGlzdCA9IFtdXG4gIGV4cG9ydCBsZXQgY3VycmVudEl0ZW0gPSAwXG5cbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuXG4gIGNvbnN0IHNlbGVjdCA9IChldmVudCkgPT4ge1xuICAgIGN1cnJlbnRJdGVtID0gZXZlbnQuZGV0YWlsLml0ZW0uaWRcbiAgICBkaXNwYXRjaCgnc2VsZWN0JywgZXZlbnQuZGV0YWlsKVxuICB9XG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICB1bCB7XG4gICAgbGlzdC1zdHlsZTogbm9uZTtcbiAgICBtYXJnaW46IDBweDtcbiAgICBwYWRkaW5nOiAwcHg7XG4gIH1cbjwvc3R5bGU+XG5cbjxkaXYgY2xhc3M9XCJsaXN0LWNvbnRhaW5lclwiPlxuICA8dWw+XG4gICAgeyNlYWNoIGxpc3QgYXMgaXRlbX1cbiAgICAgIDxMaXN0SXRlbSB7Y3VycmVudEl0ZW19IHtpdGVtfSBvbjpzZWxlY3Q9e3NlbGVjdH0gb246ZWRpdCAvPlxuICAgIHsvZWFjaH1cbiAgPC91bD5cbjwvZGl2PlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWdCRSxFQUFFLGNBQUMsQ0FBQyxBQUNGLFVBQVUsQ0FBRSxJQUFJLENBQ2hCLE1BQU0sQ0FBRSxHQUFHLENBQ1gsT0FBTyxDQUFFLEdBQUcsQUFDZCxDQUFDIn0= */";
+    	append_dev(document.head, style);
+    }
 
     function get_each_context(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -1265,9 +1306,9 @@ var app = (function () {
     			}
 
     			attr_dev(ul, "class", "svelte-xl8b5k");
-    			add_location(ul, file$2, 24, 2, 435);
+    			add_location(ul, file$2, 24, 2, 437);
     			attr_dev(div, "class", "list-container");
-    			add_location(div, file$2, 23, 0, 404);
+    			add_location(div, file$2, 23, 0, 406);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -1347,6 +1388,8 @@ var app = (function () {
     }
 
     function instance$2($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("List", slots, []);
     	let { list = [] } = $$props;
     	let { currentItem = 0 } = $$props;
     	const dispatch = createEventDispatcher();
@@ -1362,14 +1405,11 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<List> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("List", $$slots, []);
-
     	function edit_handler(event) {
     		bubble($$self, event);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("list" in $$props) $$invalidate(1, list = $$props.list);
     		if ("currentItem" in $$props) $$invalidate(0, currentItem = $$props.currentItem);
     	};
@@ -1398,6 +1438,7 @@ var app = (function () {
     class List extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-xl8b5k-style")) add_css$2();
     		init(this, options, instance$2, create_fragment$2, safe_not_equal, { list: 1, currentItem: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -1425,8 +1466,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Table.svelte generated by Svelte v3.24.0 */
+    /* src/components/Table.svelte generated by Svelte v3.32.3 */
     const file$3 = "src/components/Table.svelte";
+
+    function add_css$3() {
+    	var style = element("style");
+    	style.id = "svelte-1mfhz34-style";
+    	style.textContent = ".tbl.svelte-1mfhz34.svelte-1mfhz34{border-collapse:collapse;border-spacing:0;margin-bottom:5px;width:100%}tr.svelte-1mfhz34:hover td.svelte-1mfhz34{background:#ddd;cursor:pointer}th.svelte-1mfhz34.svelte-1mfhz34{background:#999;color:white;font-weight:bold}th.svelte-1mfhz34.svelte-1mfhz34,td.svelte-1mfhz34.svelte-1mfhz34{padding:10px;text-align:left}tr.active.svelte-1mfhz34 td.svelte-1mfhz34{color:green}tr.svelte-1mfhz34.svelte-1mfhz34:first-child{border-top:1px solid #bbb}tr.svelte-1mfhz34.svelte-1mfhz34:last-child{border-bottom:1px solid #bbb}th.svelte-1mfhz34.svelte-1mfhz34:first-child{border-left:1px solid #bbb}th.svelte-1mfhz34.svelte-1mfhz34:last-child{border-right:1px solid #bbb}tbody.svelte-1mfhz34 tr.svelte-1mfhz34:nth-child(odd){background:#eee}td.svelte-1mfhz34.svelte-1mfhz34:first-child{border-left:1px solid #bbb}td.svelte-1mfhz34.svelte-1mfhz34:last-child{border-right:1px solid #bbb}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiVGFibGUuc3ZlbHRlIiwic291cmNlcyI6WyJUYWJsZS5zdmVsdGUiXSwic291cmNlc0NvbnRlbnQiOlsiPHNjcmlwdD5cbiAgaW1wb3J0IHsgY3JlYXRlRXZlbnREaXNwYXRjaGVyIH0gZnJvbSAnc3ZlbHRlJ1xuXG4gIGV4cG9ydCBsZXQgZGF0YSA9ICcnXG4gIGV4cG9ydCBsZXQgc2VsZWN0ZWQgPSAnJ1xuXG4gIGNvbnN0IGRpc3BhdGNoID0gY3JlYXRlRXZlbnREaXNwYXRjaGVyKClcblxuICBjb25zdCBoYW5kbGVDbGljayA9IChlbnRyeSkgPT4gZGlzcGF0Y2goJ2NsaWNrZWRSb3cnLCBlbnRyeSlcbjwvc2NyaXB0PlxuXG48c3R5bGU+XG4gIC50Ymwge1xuICAgIGJvcmRlci1jb2xsYXBzZTogY29sbGFwc2U7XG4gICAgYm9yZGVyLXNwYWNpbmc6IDA7XG4gICAgbWFyZ2luLWJvdHRvbTogNXB4O1xuICAgIHdpZHRoOiAxMDAlO1xuICB9XG5cbiAgdHI6aG92ZXIgdGQge1xuICAgIGJhY2tncm91bmQ6ICNkZGQ7XG4gICAgY3Vyc29yOiBwb2ludGVyO1xuICB9XG5cbiAgdGgge1xuICAgIGJhY2tncm91bmQ6ICM5OTk7XG4gICAgY29sb3I6IHdoaXRlO1xuICAgIGZvbnQtd2VpZ2h0OiBib2xkO1xuICB9XG5cbiAgdGgsXG4gIHRkIHtcbiAgICBwYWRkaW5nOiAxMHB4O1xuICAgIHRleHQtYWxpZ246IGxlZnQ7XG4gIH1cblxuICB0ci5hY3RpdmUgdGQge1xuICAgIGNvbG9yOiBncmVlbjtcbiAgfVxuXG4gIHRyOmZpcnN0LWNoaWxkIHtcbiAgICBib3JkZXItdG9wOiAxcHggc29saWQgI2JiYjtcbiAgfVxuXG4gIHRyOmxhc3QtY2hpbGQge1xuICAgIGJvcmRlci1ib3R0b206IDFweCBzb2xpZCAjYmJiO1xuICB9XG5cbiAgdGg6Zmlyc3QtY2hpbGQge1xuICAgIGJvcmRlci1sZWZ0OiAxcHggc29saWQgI2JiYjtcbiAgfVxuXG4gIHRoOmxhc3QtY2hpbGQge1xuICAgIGJvcmRlci1yaWdodDogMXB4IHNvbGlkICNiYmI7XG4gIH1cblxuICB0Ym9keSB0cjpudGgtY2hpbGQob2RkKSB7XG4gICAgYmFja2dyb3VuZDogI2VlZTtcbiAgfVxuXG4gIHRkOmZpcnN0LWNoaWxkIHtcbiAgICBib3JkZXItbGVmdDogMXB4IHNvbGlkICNiYmI7XG4gIH1cblxuICB0ZDpsYXN0LWNoaWxkIHtcbiAgICBib3JkZXItcmlnaHQ6IDFweCBzb2xpZCAjYmJiO1xuICB9XG48L3N0eWxlPlxuXG48dGFibGUgY2xhc3M9XCJ0YmxcIj5cbiAgPHRoZWFkPlxuICAgIDx0cj5cbiAgICAgIHsjZWFjaCBkYXRhLmhlYWRlciBhcyBoZWFkZXJ9XG4gICAgICAgIDx0aD57aGVhZGVyfTwvdGg+XG4gICAgICB7L2VhY2h9XG4gICAgPC90cj5cbiAgPC90aGVhZD5cbiAgPHRib2R5PlxuICAgIHsjZWFjaCBkYXRhLmVudHJpZXMgYXMgZW50cnl9XG4gICAgICA8dHIgY2xhc3M6YWN0aXZlPXtzZWxlY3RlZCA9PT0gZW50cnkubmFtZX0gb246Y2xpY2s9e2hhbmRsZUNsaWNrKGVudHJ5KX0+XG4gICAgICAgIDx0ZD57ZW50cnkubmFtZX08L3RkPlxuICAgICAgICA8dGQ+e2VudHJ5LnVybH08L3RkPlxuICAgICAgPC90cj5cbiAgICB7L2VhY2h9XG4gIDwvdGJvZHk+XG48L3RhYmxlPlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQVlFLElBQUksOEJBQUMsQ0FBQyxBQUNKLGVBQWUsQ0FBRSxRQUFRLENBQ3pCLGNBQWMsQ0FBRSxDQUFDLENBQ2pCLGFBQWEsQ0FBRSxHQUFHLENBQ2xCLEtBQUssQ0FBRSxJQUFJLEFBQ2IsQ0FBQyxBQUVELGlCQUFFLE1BQU0sQ0FBQyxFQUFFLGVBQUMsQ0FBQyxBQUNYLFVBQVUsQ0FBRSxJQUFJLENBQ2hCLE1BQU0sQ0FBRSxPQUFPLEFBQ2pCLENBQUMsQUFFRCxFQUFFLDhCQUFDLENBQUMsQUFDRixVQUFVLENBQUUsSUFBSSxDQUNoQixLQUFLLENBQUUsS0FBSyxDQUNaLFdBQVcsQ0FBRSxJQUFJLEFBQ25CLENBQUMsQUFFRCxnQ0FBRSxDQUNGLEVBQUUsOEJBQUMsQ0FBQyxBQUNGLE9BQU8sQ0FBRSxJQUFJLENBQ2IsVUFBVSxDQUFFLElBQUksQUFDbEIsQ0FBQyxBQUVELEVBQUUsc0JBQU8sQ0FBQyxFQUFFLGVBQUMsQ0FBQyxBQUNaLEtBQUssQ0FBRSxLQUFLLEFBQ2QsQ0FBQyxBQUVELGdDQUFFLFlBQVksQUFBQyxDQUFDLEFBQ2QsVUFBVSxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxBQUM1QixDQUFDLEFBRUQsZ0NBQUUsV0FBVyxBQUFDLENBQUMsQUFDYixhQUFhLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLEFBQy9CLENBQUMsQUFFRCxnQ0FBRSxZQUFZLEFBQUMsQ0FBQyxBQUNkLFdBQVcsQ0FBRSxHQUFHLENBQUMsS0FBSyxDQUFDLElBQUksQUFDN0IsQ0FBQyxBQUVELGdDQUFFLFdBQVcsQUFBQyxDQUFDLEFBQ2IsWUFBWSxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxBQUM5QixDQUFDLEFBRUQsb0JBQUssQ0FBQyxpQkFBRSxXQUFXLEdBQUcsQ0FBQyxBQUFDLENBQUMsQUFDdkIsVUFBVSxDQUFFLElBQUksQUFDbEIsQ0FBQyxBQUVELGdDQUFFLFlBQVksQUFBQyxDQUFDLEFBQ2QsV0FBVyxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxBQUM3QixDQUFDLEFBRUQsZ0NBQUUsV0FBVyxBQUFDLENBQUMsQUFDYixZQUFZLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLEFBQzlCLENBQUMifQ== */";
+    	append_dev(document.head, style);
+    }
 
     function get_each_context$1(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -1451,7 +1499,7 @@ var app = (function () {
     			th = element("th");
     			t = text(t_value);
     			attr_dev(th, "class", "svelte-1mfhz34");
-    			add_location(th, file$3, 73, 8, 1070);
+    			add_location(th, file$3, 73, 8, 1072);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, th, anchor);
@@ -1500,12 +1548,12 @@ var app = (function () {
     			t2 = text(t2_value);
     			t3 = space();
     			attr_dev(td0, "class", "svelte-1mfhz34");
-    			add_location(td0, file$3, 80, 8, 1255);
+    			add_location(td0, file$3, 80, 8, 1257);
     			attr_dev(td1, "class", "svelte-1mfhz34");
-    			add_location(td1, file$3, 81, 8, 1285);
+    			add_location(td1, file$3, 81, 8, 1287);
     			attr_dev(tr, "class", "svelte-1mfhz34");
     			toggle_class(tr, "active", /*selected*/ ctx[1] === /*entry*/ ctx[4].name);
-    			add_location(tr, file$3, 79, 6, 1173);
+    			add_location(tr, file$3, 79, 6, 1175);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, tr, anchor);
@@ -1598,12 +1646,12 @@ var app = (function () {
     			}
 
     			attr_dev(tr, "class", "svelte-1mfhz34");
-    			add_location(tr, file$3, 71, 4, 1021);
-    			add_location(thead, file$3, 70, 2, 1009);
+    			add_location(tr, file$3, 71, 4, 1023);
+    			add_location(thead, file$3, 70, 2, 1011);
     			attr_dev(tbody, "class", "svelte-1mfhz34");
-    			add_location(tbody, file$3, 77, 2, 1125);
+    			add_location(tbody, file$3, 77, 2, 1127);
     			attr_dev(table, "class", "tbl svelte-1mfhz34");
-    			add_location(table, file$3, 69, 0, 987);
+    			add_location(table, file$3, 69, 0, 989);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -1694,6 +1742,8 @@ var app = (function () {
     }
 
     function instance$3($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Table", slots, []);
     	let { data = "" } = $$props;
     	let { selected = "" } = $$props;
     	const dispatch = createEventDispatcher();
@@ -1704,10 +1754,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Table> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Table", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("data" in $$props) $$invalidate(0, data = $$props.data);
     		if ("selected" in $$props) $$invalidate(1, selected = $$props.selected);
     	};
@@ -1735,6 +1782,7 @@ var app = (function () {
     class Table extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1mfhz34-style")) add_css$3();
     		init(this, options, instance$3, create_fragment$3, safe_not_equal, { data: 0, selected: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -1762,16 +1810,23 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Button.svelte generated by Svelte v3.24.0 */
+    /* src/components/Button.svelte generated by Svelte v3.32.3 */
 
     const file$4 = "src/components/Button.svelte";
+
+    function add_css$4() {
+    	var style = element("style");
+    	style.id = "svelte-d5hf4t-style";
+    	style.textContent = "button.svelte-d5hf4t{font-size:0.9em;margin-top:0.3em;padding:0.5em 0.8em;color:black;background:white;border-radius:0.3em;box-shadow:1px 1px 3px rgba(0, 0, 0, 0.5)}.sendBtn.svelte-d5hf4t{background:blue;color:white}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQnV0dG9uLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQnV0dG9uLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBleHBvcnQgbGV0IHNlbmQgPSBmYWxzZVxuICBleHBvcnQgbGV0IGlkID0gJ2J0bidcbjwvc2NyaXB0PlxuXG48c3R5bGU+XG4gIGJ1dHRvbiB7XG4gICAgZm9udC1zaXplOiAwLjllbTtcbiAgICBtYXJnaW4tdG9wOiAwLjNlbTtcbiAgICBwYWRkaW5nOiAwLjVlbSAwLjhlbTtcbiAgICBjb2xvcjogYmxhY2s7XG4gICAgYmFja2dyb3VuZDogd2hpdGU7XG4gICAgYm9yZGVyLXJhZGl1czogMC4zZW07XG4gICAgYm94LXNoYWRvdzogMXB4IDFweCAzcHggcmdiYSgwLCAwLCAwLCAwLjUpO1xuICB9XG4gIC5zZW5kQnRuIHtcbiAgICBiYWNrZ3JvdW5kOiBibHVlO1xuICAgIGNvbG9yOiB3aGl0ZTtcbiAgfVxuPC9zdHlsZT5cblxuPGJ1dHRvbiB7aWR9IGNsYXNzOnNlbmRCdG49e3NlbmQgPT09IHRydWV9IG9uOmNsaWNrPlxuICA8c2xvdCAvPlxuPC9idXR0b24+XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBTUUsTUFBTSxjQUFDLENBQUMsQUFDTixTQUFTLENBQUUsS0FBSyxDQUNoQixVQUFVLENBQUUsS0FBSyxDQUNqQixPQUFPLENBQUUsS0FBSyxDQUFDLEtBQUssQ0FDcEIsS0FBSyxDQUFFLEtBQUssQ0FDWixVQUFVLENBQUUsS0FBSyxDQUNqQixhQUFhLENBQUUsS0FBSyxDQUNwQixVQUFVLENBQUUsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQUMsS0FBSyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxHQUFHLENBQUMsQUFDNUMsQ0FBQyxBQUNELFFBQVEsY0FBQyxDQUFDLEFBQ1IsVUFBVSxDQUFFLElBQUksQ0FDaEIsS0FBSyxDQUFFLEtBQUssQUFDZCxDQUFDIn0= */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment$4(ctx) {
     	let button;
     	let current;
     	let mounted;
     	let dispose;
-    	const default_slot_template = /*$$slots*/ ctx[3].default;
+    	const default_slot_template = /*#slots*/ ctx[3].default;
     	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[2], null);
 
     	const block = {
@@ -1844,6 +1899,8 @@ var app = (function () {
     }
 
     function instance$4($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Button", slots, ['default']);
     	let { send = false } = $$props;
     	let { id = "btn" } = $$props;
     	const writable_props = ["send", "id"];
@@ -1852,14 +1909,11 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Button> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Button", $$slots, ['default']);
-
     	function click_handler(event) {
     		bubble($$self, event);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("send" in $$props) $$invalidate(0, send = $$props.send);
     		if ("id" in $$props) $$invalidate(1, id = $$props.id);
     		if ("$$scope" in $$props) $$invalidate(2, $$scope = $$props.$$scope);
@@ -1876,12 +1930,13 @@ var app = (function () {
     		$$self.$inject_state($$props.$$inject);
     	}
 
-    	return [send, id, $$scope, $$slots, click_handler];
+    	return [send, id, $$scope, slots, click_handler];
     }
 
     class Button extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-d5hf4t-style")) add_css$4();
     		init(this, options, instance$4, create_fragment$4, safe_not_equal, { send: 0, id: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -1917,7 +1972,7 @@ var app = (function () {
         return --t * t * t * t * t + 1;
     }
 
-    function fade(node, { delay = 0, duration = 400, easing = identity }) {
+    function fade(node, { delay = 0, duration = 400, easing = identity } = {}) {
         const o = +getComputedStyle(node).opacity;
         return {
             delay,
@@ -1926,7 +1981,7 @@ var app = (function () {
             css: t => `opacity: ${t * o}`
         };
     }
-    function fly(node, { delay = 0, duration = 400, easing = cubicOut, x = 0, y = 0, opacity = 0 }) {
+    function fly(node, { delay = 0, duration = 400, easing = cubicOut, x = 0, y = 0, opacity = 0 } = {}) {
         const style = getComputedStyle(node);
         const target_opacity = +style.opacity;
         const transform = style.transform === 'none' ? '' : style.transform;
@@ -1941,8 +1996,18 @@ var app = (function () {
         };
     }
 
-    /* src/components/Modal.svelte generated by Svelte v3.24.0 */
+    /* src/components/Modal.svelte generated by Svelte v3.32.3 */
+
+    const { document: document_1 } = globals;
     const file$5 = "src/components/Modal.svelte";
+
+    function add_css$5() {
+    	var style = element("style");
+    	style.id = "svelte-4822xx-style";
+    	style.textContent = ".modal-background.svelte-4822xx{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0, 0, 0, 0.3)}.modal.svelte-4822xx{position:absolute;left:50%;top:50%;width:calc(100vw - 4em);max-width:32em;max-height:calc(100vh - 4em);overflow:auto;transform:translate(-50%, -50%);padding:1em;border-radius:0.2em;background:white;text-align:center}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiTW9kYWwuc3ZlbHRlIiwic291cmNlcyI6WyJNb2RhbC5zdmVsdGUiXSwic291cmNlc0NvbnRlbnQiOlsiPHNjcmlwdD5cbiAgaW1wb3J0IEJ1dHRvbiBmcm9tICcuL0J1dHRvbi5zdmVsdGUnXG4gIGltcG9ydCB7IGZseSB9IGZyb20gJ3N2ZWx0ZS90cmFuc2l0aW9uJ1xuICBpbXBvcnQgeyBxdWludE91dCB9IGZyb20gJ3N2ZWx0ZS9lYXNpbmcnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciwgb25EZXN0cm95IH0gZnJvbSAnc3ZlbHRlJ1xuXG4gIGV4cG9ydCBsZXQgbW9kYWxGb3JtID0gZmFsc2VcbiAgZXhwb3J0IGxldCBtb2RhbElkID0gJ21vZGFsJ1xuXG4gIGNvbnN0IGRpc3BhdGNoID0gY3JlYXRlRXZlbnREaXNwYXRjaGVyKClcblxuICBjb25zdCBzZW5kID0gKCkgPT4gZGlzcGF0Y2goJ3NlbmRGb3JtJylcbiAgY29uc3QgY2xvc2UgPSAoKSA9PiBkaXNwYXRjaCgnY2xvc2UnKVxuXG4gIGxldCBtb2RhbFxuXG4gIGNvbnN0IGhhbmRsZUtleWRvd24gPSAoZSkgPT4ge1xuICAgIGlmIChlLmtleSA9PT0gJ0VzY2FwZScpIHtcbiAgICAgIGNsb3NlKClcbiAgICAgIHJldHVyblxuICAgIH1cbiAgICBpZiAoZS5rZXkgPT09ICdUYWInKSB7XG4gICAgICBjb25zdCBub2RlcyA9IG1vZGFsLnF1ZXJ5U2VsZWN0b3JBbGwoJyonKVxuICAgICAgY29uc3QgdGFiYmFibGUgPSBBcnJheS5mcm9tKG5vZGVzKS5maWx0ZXIoKG4pID0+IG4udGFiSW5kZXggPj0gMClcbiAgICAgIGxldCBpbmRleCA9IHRhYmJhYmxlLmluZGV4T2YoZG9jdW1lbnQuYWN0aXZlRWxlbWVudClcbiAgICAgIGlmIChpbmRleCA9PT0gLTEgJiYgZS5zaGlmdEtleSkgaW5kZXggPSAwXG4gICAgICBpbmRleCArPSB0YWJiYWJsZS5sZW5ndGggKyAoZS5zaGlmdEtleSA/IC0xIDogMSlcbiAgICAgIGluZGV4ICU9IHRhYmJhYmxlLmxlbmd0aFxuICAgICAgdGFiYmFibGVbaW5kZXhdLmZvY3VzKClcbiAgICAgIGUucHJldmVudERlZmF1bHQoKVxuICAgIH1cbiAgfVxuXG4gIGNvbnN0IHByZXZpb3VzbHlfZm9jdXNlZCA9XG4gICAgdHlwZW9mIGRvY3VtZW50ICE9PSAndW5kZWZpbmVkJyAmJiBkb2N1bWVudC5hY3RpdmVFbGVtZW50XG5cbiAgaWYgKHByZXZpb3VzbHlfZm9jdXNlZCkge1xuICAgIG9uRGVzdHJveSgoKSA9PiB7XG4gICAgICBwcmV2aW91c2x5X2ZvY3VzZWQuZm9jdXMoKVxuICAgIH0pXG4gIH1cbjwvc2NyaXB0PlxuXG48c3R5bGU+XG4gIC5tb2RhbC1iYWNrZ3JvdW5kIHtcbiAgICBwb3NpdGlvbjogZml4ZWQ7XG4gICAgdG9wOiAwO1xuICAgIGxlZnQ6IDA7XG4gICAgd2lkdGg6IDEwMCU7XG4gICAgaGVpZ2h0OiAxMDAlO1xuICAgIGJhY2tncm91bmQ6IHJnYmEoMCwgMCwgMCwgMC4zKTtcbiAgfVxuICAubW9kYWwge1xuICAgIHBvc2l0aW9uOiBhYnNvbHV0ZTtcbiAgICBsZWZ0OiA1MCU7XG4gICAgdG9wOiA1MCU7XG4gICAgd2lkdGg6IGNhbGMoMTAwdncgLSA0ZW0pO1xuICAgIG1heC13aWR0aDogMzJlbTtcbiAgICBtYXgtaGVpZ2h0OiBjYWxjKDEwMHZoIC0gNGVtKTtcbiAgICBvdmVyZmxvdzogYXV0bztcbiAgICB0cmFuc2Zvcm06IHRyYW5zbGF0ZSgtNTAlLCAtNTAlKTtcbiAgICBwYWRkaW5nOiAxZW07XG4gICAgYm9yZGVyLXJhZGl1czogMC4yZW07XG4gICAgYmFja2dyb3VuZDogd2hpdGU7XG4gICAgdGV4dC1hbGlnbjogY2VudGVyO1xuICB9XG48L3N0eWxlPlxuXG48c3ZlbHRlOndpbmRvdyBvbjprZXlkb3duPXtoYW5kbGVLZXlkb3dufSAvPlxuXG48ZGl2IGNsYXNzPVwibW9kYWwtYmFja2dyb3VuZFwiIG9uOmNsaWNrPXtjbG9zZX0gLz5cblxuPGRpdlxuICBpZD17bW9kYWxJZH1cbiAgY2xhc3M9XCJtb2RhbFwiXG4gIHJvbGU9XCJkaWFsb2dcIlxuICBhcmlhLW1vZGFsPVwidHJ1ZVwiXG4gIGJpbmQ6dGhpcz17bW9kYWx9XG4gIHRyYW5zaXRpb246Zmx5PXt7IGRlbGF5OiAwLCBkdXJhdGlvbjogMTAwMCwgeTogLTUwMCwgb3BhY2l0eTogMC4yLCBlYXNpbmc6IHF1aW50T3V0IH19PlxuICA8c2xvdCBuYW1lPVwiaGVhZGVyXCIgLz5cbiAgPHNsb3QgLz5cbiAgPCEtLSBzdmVsdGUtaWdub3JlIGExMXktYXV0b2ZvY3VzIC0tPlxuICB7I2lmIG1vZGFsRm9ybX1cbiAgICA8QnV0dG9uIHNlbmQgb246Y2xpY2s9e3NlbmR9PlNlbmQ8L0J1dHRvbj5cbiAgey9pZn1cbiAgPEJ1dHRvbiBpZD1cIm1vZGFsQ2xvc2VCdG5cIiBvbjpjbGljaz17Y2xvc2V9PkNsb3NlPC9CdXR0b24+XG48L2Rpdj5cbiJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUE0Q0UsaUJBQWlCLGNBQUMsQ0FBQyxBQUNqQixRQUFRLENBQUUsS0FBSyxDQUNmLEdBQUcsQ0FBRSxDQUFDLENBQ04sSUFBSSxDQUFFLENBQUMsQ0FDUCxLQUFLLENBQUUsSUFBSSxDQUNYLE1BQU0sQ0FBRSxJQUFJLENBQ1osVUFBVSxDQUFFLEtBQUssQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsR0FBRyxDQUFDLEFBQ2hDLENBQUMsQUFDRCxNQUFNLGNBQUMsQ0FBQyxBQUNOLFFBQVEsQ0FBRSxRQUFRLENBQ2xCLElBQUksQ0FBRSxHQUFHLENBQ1QsR0FBRyxDQUFFLEdBQUcsQ0FDUixLQUFLLENBQUUsS0FBSyxLQUFLLENBQUMsQ0FBQyxDQUFDLEdBQUcsQ0FBQyxDQUN4QixTQUFTLENBQUUsSUFBSSxDQUNmLFVBQVUsQ0FBRSxLQUFLLEtBQUssQ0FBQyxDQUFDLENBQUMsR0FBRyxDQUFDLENBQzdCLFFBQVEsQ0FBRSxJQUFJLENBQ2QsU0FBUyxDQUFFLFVBQVUsSUFBSSxDQUFDLENBQUMsSUFBSSxDQUFDLENBQ2hDLE9BQU8sQ0FBRSxHQUFHLENBQ1osYUFBYSxDQUFFLEtBQUssQ0FDcEIsVUFBVSxDQUFFLEtBQUssQ0FDakIsVUFBVSxDQUFFLE1BQU0sQUFDcEIsQ0FBQyJ9 */";
+    	append_dev(document_1.head, style);
+    }
+
     const get_header_slot_changes = dirty => ({});
     const get_header_slot_context = ctx => ({});
 
@@ -2070,9 +2135,9 @@ var app = (function () {
     	let current;
     	let mounted;
     	let dispose;
-    	const header_slot_template = /*$$slots*/ ctx[6].header;
+    	const header_slot_template = /*#slots*/ ctx[6].header;
     	const header_slot = create_slot(header_slot_template, ctx, /*$$scope*/ ctx[8], get_header_slot_context);
-    	const default_slot_template = /*$$slots*/ ctx[6].default;
+    	const default_slot_template = /*#slots*/ ctx[6].default;
     	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[8], null);
     	let if_block = /*modalForm*/ ctx[0] && create_if_block(ctx);
 
@@ -2100,12 +2165,12 @@ var app = (function () {
     			t3 = space();
     			create_component(button.$$.fragment);
     			attr_dev(div0, "class", "modal-background svelte-4822xx");
-    			add_location(div0, file$5, 70, 0, 1602);
+    			add_location(div0, file$5, 70, 0, 1606);
     			attr_dev(div1, "id", /*modalId*/ ctx[1]);
     			attr_dev(div1, "class", "modal svelte-4822xx");
     			attr_dev(div1, "role", "dialog");
     			attr_dev(div1, "aria-modal", "true");
-    			add_location(div1, file$5, 72, 0, 1653);
+    			add_location(div1, file$5, 72, 0, 1657);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -2141,7 +2206,9 @@ var app = (function () {
     				mounted = true;
     			}
     		},
-    		p: function update(ctx, [dirty]) {
+    		p: function update(new_ctx, [dirty]) {
+    			ctx = new_ctx;
+
     			if (header_slot) {
     				if (header_slot.p && dirty & /*$$scope*/ 256) {
     					update_slot(header_slot, header_slot_template, ctx, /*$$scope*/ ctx[8], dirty, get_header_slot_changes, get_header_slot_context);
@@ -2264,6 +2331,8 @@ var app = (function () {
     }
 
     function instance$5($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Modal", slots, ['header','default']);
     	let { modalForm = false } = $$props;
     	let { modalId = "modal" } = $$props;
     	const dispatch = createEventDispatcher();
@@ -2303,9 +2372,6 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Modal> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Modal", $$slots, ['header','default']);
-
     	function div1_binding($$value) {
     		binding_callbacks[$$value ? "unshift" : "push"](() => {
     			modal = $$value;
@@ -2313,7 +2379,7 @@ var app = (function () {
     		});
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("modalForm" in $$props) $$invalidate(0, modalForm = $$props.modalForm);
     		if ("modalId" in $$props) $$invalidate(1, modalId = $$props.modalId);
     		if ("$$scope" in $$props) $$invalidate(8, $$scope = $$props.$$scope);
@@ -2352,7 +2418,7 @@ var app = (function () {
     		send,
     		close,
     		handleKeydown,
-    		$$slots,
+    		slots,
     		div1_binding,
     		$$scope
     	];
@@ -2361,6 +2427,7 @@ var app = (function () {
     class Modal extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document_1.getElementById("svelte-4822xx-style")) add_css$5();
     		init(this, options, instance$5, create_fragment$5, safe_not_equal, { modalForm: 0, modalId: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -2388,7 +2455,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalDialog.svelte generated by Svelte v3.24.0 */
+    /* src/components/ModalDialog.svelte generated by Svelte v3.32.3 */
     const file$6 = "src/components/ModalDialog.svelte";
 
     // (23:0) <Button id="modalDialog" on:click={open}>
@@ -2650,6 +2717,8 @@ var app = (function () {
     }
 
     function instance$6($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("ModalDialog", slots, []);
     	let { showModal = false } = $$props;
     	let { headline = "Modal" } = $$props;
     	let { body = "" } = $$props;
@@ -2671,10 +2740,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ModalDialog> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("ModalDialog", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("showModal" in $$props) $$invalidate(0, showModal = $$props.showModal);
     		if ("headline" in $$props) $$invalidate(1, headline = $$props.headline);
     		if ("body" in $$props) $$invalidate(2, body = $$props.body);
@@ -2760,8 +2826,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalForm.svelte generated by Svelte v3.24.0 */
+    /* src/components/ModalForm.svelte generated by Svelte v3.32.3 */
     const file$7 = "src/components/ModalForm.svelte";
+
+    function add_css$6() {
+    	var style = element("style");
+    	style.id = "svelte-13cwivs-style";
+    	style.textContent = "input[type='text'].svelte-13cwivs{width:90%}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiTW9kYWxGb3JtLnN2ZWx0ZSIsInNvdXJjZXMiOlsiTW9kYWxGb3JtLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBjcmVhdGVFdmVudERpc3BhdGNoZXIsIG9uRGVzdHJveSB9IGZyb20gJ3N2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsIGZyb20gJy4vTW9kYWwuc3ZlbHRlJ1xuXG4gIGV4cG9ydCBsZXQgc2hvd01vZGFsID0gZmFsc2VcbiAgZXhwb3J0IGxldCBtb2RhbEZvcm0gPSB0cnVlXG4gIGV4cG9ydCBsZXQgaGVhZGxpbmUgPSAnTW9kYWwnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgcGxhY2Vob2xkZXJOYW1lID0gJ05hbWUnXG4gIGV4cG9ydCBsZXQgcGxhY2Vob2xkZXJVcmwgPSAnVVJMJ1xuXG4gIGNvbnN0IGRpc3BhdGNoID0gY3JlYXRlRXZlbnREaXNwYXRjaGVyKClcblxuICBjb25zdCBzZW5kRm9ybSA9ICgpID0+IHtcbiAgICBkaXNwYXRjaCgnc2VuZEZvcm0nLCB7IG5hbWU6IHZhbHVlTmFtZSwgdXJsOiB2YWx1ZVVybCB9KVxuICAgIHNob3dNb2RhbCA9IGZhbHNlXG4gIH1cblxuICBjb25zdCBjbG9zZSA9ICgpID0+IHtcbiAgICBkaXNwYXRjaCgnY2xvc2UnLCB7fSlcbiAgICBzaG93TW9kYWwgPSBmYWxzZVxuICB9XG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICBpbnB1dFt0eXBlPSd0ZXh0J10ge1xuICAgIHdpZHRoOiA5MCU7XG4gIH1cbjwvc3R5bGU+XG5cbnsjaWYgc2hvd01vZGFsfVxuICA8TW9kYWxcbiAgICBtb2RhbElkPVwibW9kYWxGb3JtXCJcbiAgICB7bW9kYWxGb3JtfVxuICAgIG9uOmNsb3NlPXtjbG9zZX1cbiAgICBvbjpzZW5kRm9ybT17c2VuZEZvcm19PlxuICAgIDxoMiBzbG90PVwiaGVhZGVyXCI+e2hlYWRsaW5lfTwvaDI+XG4gICAgPGRpdj5cbiAgICAgIDxpbnB1dCB0eXBlPVwidGV4dFwiIGJpbmQ6dmFsdWU9e3ZhbHVlTmFtZX0gcGxhY2Vob2xkZXI9e3BsYWNlaG9sZGVyTmFtZX0gLz5cbiAgICA8L2Rpdj5cbiAgICA8ZGl2PlxuICAgICAgPGlucHV0IHR5cGU9XCJ0ZXh0XCIgYmluZDp2YWx1ZT17dmFsdWVVcmx9IHBsYWNlaG9sZGVyPXtwbGFjZWhvbGRlclVybH0gLz5cbiAgICA8L2Rpdj5cbiAgPC9Nb2RhbD5cbnsvaWZ9XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBMEJFLEtBQUssQ0FBQyxJQUFJLENBQUMsTUFBTSxDQUFDLGVBQUMsQ0FBQyxBQUNsQixLQUFLLENBQUUsR0FBRyxBQUNaLENBQUMifQ== */";
+    	append_dev(document.head, style);
+    }
 
     // (32:0) {#if showModal}
     function create_if_block$2(ctx) {
@@ -3018,6 +3091,8 @@ var app = (function () {
     }
 
     function instance$7($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("ModalForm", slots, []);
     	let { showModal = false } = $$props;
     	let { modalForm = true } = $$props;
     	let { headline = "Modal" } = $$props;
@@ -3051,9 +3126,6 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ModalForm> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("ModalForm", $$slots, []);
-
     	function input0_input_handler() {
     		valueName = this.value;
     		$$invalidate(1, valueName);
@@ -3064,7 +3136,7 @@ var app = (function () {
     		$$invalidate(2, valueUrl);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("showModal" in $$props) $$invalidate(0, showModal = $$props.showModal);
     		if ("modalForm" in $$props) $$invalidate(3, modalForm = $$props.modalForm);
     		if ("headline" in $$props) $$invalidate(4, headline = $$props.headline);
@@ -3122,6 +3194,7 @@ var app = (function () {
     class ModalForm extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-13cwivs-style")) add_css$6();
 
     		init(this, options, instance$7, create_fragment$7, safe_not_equal, {
     			showModal: 0,
@@ -3198,8 +3271,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/UserInput.svelte generated by Svelte v3.24.0 */
+    /* src/components/UserInput.svelte generated by Svelte v3.32.3 */
     const file$8 = "src/components/UserInput.svelte";
+
+    function add_css$7() {
+    	var style = element("style");
+    	style.id = "svelte-ky7x3z-style";
+    	style.textContent = "input[type='text'].svelte-ky7x3z{border-radius:3px 3px 3px 3px;margin-left:5px;margin-right:20px;font-size:12pt}.user-input.svelte-ky7x3z{margin-top:10px;font-size:12pt}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiVXNlcklucHV0LnN2ZWx0ZSIsInNvdXJjZXMiOlsiVXNlcklucHV0LnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBjcmVhdGVFdmVudERpc3BhdGNoZXIgfSBmcm9tICdzdmVsdGUnXG5cbiAgZXhwb3J0IGxldCB1c2VySW5wdXQgPSAnJ1xuXG4gIGNvbnN0IGRpc3BhdGNoID0gY3JlYXRlRXZlbnREaXNwYXRjaGVyKClcblxuICBjb25zdCBrZXlwcmVzcyA9ICgpID0+IHtcbiAgICBkaXNwYXRjaCgnaW5wdXQnLCB7IGlucHV0OiB1c2VySW5wdXQgfSlcbiAgfVxuPC9zY3JpcHQ+XG5cbjxzdHlsZT5cbiAgaW5wdXRbdHlwZT0ndGV4dCddIHtcbiAgICBib3JkZXItcmFkaXVzOiAzcHggM3B4IDNweCAzcHg7XG4gICAgbWFyZ2luLWxlZnQ6IDVweDtcbiAgICBtYXJnaW4tcmlnaHQ6IDIwcHg7XG4gICAgZm9udC1zaXplOiAxMnB0O1xuICB9XG4gIC51c2VyLWlucHV0IHtcbiAgICBtYXJnaW4tdG9wOiAxMHB4O1xuICAgIGZvbnQtc2l6ZTogMTJwdDtcbiAgfVxuPC9zdHlsZT5cblxuPGRpdiBjbGFzcz1cInVzZXItaW5wdXRcIj5cbiAgVHdvLXdheSBiaW5kaW5nXG4gIDxpbnB1dCB0eXBlPVwidGV4dFwiIGJpbmQ6dmFsdWU9e3VzZXJJbnB1dH0gb246a2V5dXA9e2tleXByZXNzfSAvPlxuICA8c3Bhbj57dXNlcklucHV0fTwvc3Bhbj5cbjwvZGl2PlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWFFLEtBQUssQ0FBQyxJQUFJLENBQUMsTUFBTSxDQUFDLGNBQUMsQ0FBQyxBQUNsQixhQUFhLENBQUUsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUM5QixXQUFXLENBQUUsR0FBRyxDQUNoQixZQUFZLENBQUUsSUFBSSxDQUNsQixTQUFTLENBQUUsSUFBSSxBQUNqQixDQUFDLEFBQ0QsV0FBVyxjQUFDLENBQUMsQUFDWCxVQUFVLENBQUUsSUFBSSxDQUNoQixTQUFTLENBQUUsSUFBSSxBQUNqQixDQUFDIn0= */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment$8(ctx) {
     	let div;
@@ -3275,6 +3355,8 @@ var app = (function () {
     }
 
     function instance$8($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("UserInput", slots, []);
     	let { userInput = "" } = $$props;
     	const dispatch = createEventDispatcher();
 
@@ -3288,15 +3370,12 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<UserInput> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("UserInput", $$slots, []);
-
     	function input_input_handler() {
     		userInput = this.value;
     		$$invalidate(0, userInput);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("userInput" in $$props) $$invalidate(0, userInput = $$props.userInput);
     	};
 
@@ -3321,6 +3400,7 @@ var app = (function () {
     class UserInput extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-ky7x3z-style")) add_css$7();
     		init(this, options, instance$8, create_fragment$8, safe_not_equal, { userInput: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -3340,8 +3420,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/RadioBoxes.svelte generated by Svelte v3.24.0 */
+    /* src/components/RadioBoxes.svelte generated by Svelte v3.32.3 */
     const file$9 = "src/components/RadioBoxes.svelte";
+
+    function add_css$8() {
+    	var style = element("style");
+    	style.id = "svelte-1jlio2l-style";
+    	style.textContent = ".selection-container.svelte-1jlio2l.svelte-1jlio2l{display:flex;padding:3px;border-radius:0 0 5px 0;box-shadow:2px 2px 3px #eee}.selection-container.svelte-1jlio2l>div.svelte-1jlio2l:not(:first-child){margin-left:5px;margin-top:5px}fieldset.svelte-1jlio2l.svelte-1jlio2l{border:1px solid #eee;border-radius:5px 5px 5px 5px;display:flex}.active.svelte-1jlio2l.svelte-1jlio2l{color:#00f}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiUmFkaW9Cb3hlcy5zdmVsdGUiLCJzb3VyY2VzIjpbIlJhZGlvQm94ZXMuc3ZlbHRlIl0sInNvdXJjZXNDb250ZW50IjpbIjxzY3JpcHQ+XG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBleHBvcnQgbGV0IHNlbGVjdGlvbnMgPSB7fVxuXG4gIGNvbnN0IGRpc3BhdGNoID0gY3JlYXRlRXZlbnREaXNwYXRjaGVyKClcbiAgbGV0IGN1cnJlbnQgPSAnJ1xuICBsZXQgaW5mb3JtYXRpb24gPSAnPHA+Tm90aGluZyB0byBkaXNwbGF5LjwvcD4nXG5cbiAgY29uc3Qgc2V0U2VsZWN0aW9uID0gKHNlbGVjdG9yKSA9PiB7XG4gICAgY3VycmVudCA9IHNlbGVjdG9yXG4gICAgY29uc3QgaXRlbSA9IHNlbGVjdGlvbnMuZmluZCgobykgPT4gby5zZWxlY3RvciA9PT0gc2VsZWN0b3IpXG4gICAgaW5mb3JtYXRpb24gPSBpdGVtLnRleHRcbiAgICBkaXNwYXRjaCgnc2VsZWN0JywgeyBjdXJyZW50IH0pXG4gIH1cbjwvc2NyaXB0PlxuXG48c3R5bGU+XG4gIC5zZWxlY3Rpb24tY29udGFpbmVyIHtcbiAgICBkaXNwbGF5OiBmbGV4O1xuICAgIHBhZGRpbmc6IDNweDtcbiAgICBib3JkZXItcmFkaXVzOiAwIDAgNXB4IDA7XG4gICAgYm94LXNoYWRvdzogMnB4IDJweCAzcHggI2VlZTtcbiAgfVxuICAuc2VsZWN0aW9uLWNvbnRhaW5lciA+IGRpdjpub3QoOmZpcnN0LWNoaWxkKSB7XG4gICAgbWFyZ2luLWxlZnQ6IDVweDtcbiAgICBtYXJnaW4tdG9wOiA1cHg7XG4gIH1cbiAgZmllbGRzZXQge1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICAgIGRpc3BsYXk6IGZsZXg7XG4gIH1cbiAgLmFjdGl2ZSB7XG4gICAgY29sb3I6ICMwMGY7XG4gIH1cbjwvc3R5bGU+XG5cbjxkaXYgY2xhc3M9XCJzZWxlY3Rpb24tY29udGFpbmVyXCI+XG4gIDxkaXY+XG4gICAgPGZpZWxkc2V0PlxuICAgICAgeyNlYWNoIHNlbGVjdGlvbnMgYXMgeyBzZWxlY3RvciwgbGFiZWwgfSwgaX1cbiAgICAgICAgPGxhYmVsXG4gICAgICAgICAgY2xhc3M6YWN0aXZlPXtjdXJyZW50ID09PSBzZWxlY3Rvcn1cbiAgICAgICAgICBvbjpjbGljaz17c2V0U2VsZWN0aW9uKHNlbGVjdG9yKX0+XG4gICAgICAgICAge2xhYmVsfVxuICAgICAgICAgIDxpbnB1dFxuICAgICAgICAgICAgdHlwZT1cInJhZGlvXCJcbiAgICAgICAgICAgIG5hbWU9XCJzZWxlY3Rpb25cIlxuICAgICAgICAgICAgaWQ9e3NlbGVjdG9yfVxuICAgICAgICAgICAgdGl0bGU9e3NlbGVjdG9yfVxuICAgICAgICAgICAgdmFsdWU9e3NlbGVjdG9yfSAvPlxuICAgICAgICA8L2xhYmVsPlxuICAgICAgey9lYWNofVxuICAgIDwvZmllbGRzZXQ+XG4gIDwvZGl2PlxuICA8ZGl2PlxuICAgIFRoZSB1c2VyIHNlbGVjdGVkIHtjdXJyZW50ID8gY3VycmVudCA6ICdub3RoaW5nJ30uXG4gICAge0BodG1sIGluZm9ybWF0aW9ufVxuICA8L2Rpdj5cbjwvZGl2PlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWtCRSxvQkFBb0IsOEJBQUMsQ0FBQyxBQUNwQixPQUFPLENBQUUsSUFBSSxDQUNiLE9BQU8sQ0FBRSxHQUFHLENBQ1osYUFBYSxDQUFFLENBQUMsQ0FBQyxDQUFDLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FDeEIsVUFBVSxDQUFFLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUFDLElBQUksQUFDOUIsQ0FBQyxBQUNELG1DQUFvQixDQUFHLGtCQUFHLEtBQUssWUFBWSxDQUFDLEFBQUMsQ0FBQyxBQUM1QyxXQUFXLENBQUUsR0FBRyxDQUNoQixVQUFVLENBQUUsR0FBRyxBQUNqQixDQUFDLEFBQ0QsUUFBUSw4QkFBQyxDQUFDLEFBQ1IsTUFBTSxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxDQUN0QixhQUFhLENBQUUsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUM5QixPQUFPLENBQUUsSUFBSSxBQUNmLENBQUMsQUFDRCxPQUFPLDhCQUFDLENBQUMsQUFDUCxLQUFLLENBQUUsSUFBSSxBQUNiLENBQUMifQ== */";
+    	append_dev(document.head, style);
+    }
 
     function get_each_context$2(ctx, list, i) {
     	const child_ctx = ctx.slice();
@@ -3377,10 +3464,10 @@ var app = (function () {
     			attr_dev(input, "id", input_id_value = /*selector*/ ctx[5]);
     			attr_dev(input, "title", input_title_value = /*selector*/ ctx[5]);
     			input.value = input_value_value = /*selector*/ ctx[5];
-    			add_location(input, file$9, 46, 10, 1022);
+    			add_location(input, file$9, 46, 10, 1026);
     			attr_dev(label, "class", "svelte-1jlio2l");
     			toggle_class(label, "active", /*current*/ ctx[1] === /*selector*/ ctx[5]);
-    			add_location(label, file$9, 42, 8, 896);
+    			add_location(label, file$9, 42, 8, 900);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, label, anchor);
@@ -3477,14 +3564,14 @@ var app = (function () {
     			t2 = text(t2_value);
     			t3 = text(".\n    ");
     			attr_dev(fieldset, "class", "svelte-1jlio2l");
-    			add_location(fieldset, file$9, 40, 4, 826);
+    			add_location(fieldset, file$9, 40, 4, 830);
     			attr_dev(div0, "class", "svelte-1jlio2l");
-    			add_location(div0, file$9, 39, 2, 816);
+    			add_location(div0, file$9, 39, 2, 820);
     			html_tag = new HtmlTag(null);
     			attr_dev(div1, "class", "svelte-1jlio2l");
-    			add_location(div1, file$9, 56, 2, 1228);
+    			add_location(div1, file$9, 56, 2, 1232);
     			attr_dev(div2, "class", "selection-container svelte-1jlio2l");
-    			add_location(div2, file$9, 38, 0, 780);
+    			add_location(div2, file$9, 38, 0, 784);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -3553,6 +3640,8 @@ var app = (function () {
     }
 
     function instance$9($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("RadioBoxes", slots, []);
     	let { selections = {} } = $$props;
     	const dispatch = createEventDispatcher();
     	let current = "";
@@ -3571,10 +3660,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<RadioBoxes> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("RadioBoxes", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("selections" in $$props) $$invalidate(0, selections = $$props.selections);
     	};
 
@@ -3603,6 +3689,7 @@ var app = (function () {
     class RadioBoxes extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1jlio2l-style")) add_css$8();
     		init(this, options, instance$9, create_fragment$9, safe_not_equal, { selections: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -3622,8 +3709,15 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Contenteditable.svelte generated by Svelte v3.24.0 */
+    /* src/components/Contenteditable.svelte generated by Svelte v3.32.3 */
     const file$a = "src/components/Contenteditable.svelte";
+
+    function add_css$9() {
+    	var style = element("style");
+    	style.id = "svelte-1yv2dil-style";
+    	style.textContent = ".contentBox.svelte-1yv2dil{margin:7px 0px 7px 0px;padding:5px;border-radius:5px 5px 5px 5px;box-shadow:2px 2px 3px #eee}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBjcmVhdGVFdmVudERpc3BhdGNoZXIgfSBmcm9tICdzdmVsdGUnXG5cbiAgZXhwb3J0IGxldCBjb250ZW50ID0gJydcblxuICBjb25zdCBkaXNwYXRjaCA9IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlcigpXG5cbiAgY29uc3Qga2V5cHJlc3MgPSAoKSA9PiBkaXNwYXRjaCgnaW5wdXQnLCB7IGlucHV0OiBjb250ZW50IH0pXG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICAuY29udGVudEJveCB7XG4gICAgbWFyZ2luOiA3cHggMHB4IDdweCAwcHg7XG4gICAgcGFkZGluZzogNXB4O1xuICAgIGJvcmRlci1yYWRpdXM6IDVweCA1cHggNXB4IDVweDtcbiAgICBib3gtc2hhZG93OiAycHggMnB4IDNweCAjZWVlO1xuICB9XG48L3N0eWxlPlxuXG48ZGl2XG4gIGNsYXNzPVwiY29udGVudEJveFwiXG4gIGNvbnRlbnRlZGl0YWJsZT1cInRydWVcIlxuICBiaW5kOnRleHRDb250ZW50PXtjb250ZW50fVxuICBvbjprZXl1cD17a2V5cHJlc3N9IC8+XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBV0UsV0FBVyxlQUFDLENBQUMsQUFDWCxNQUFNLENBQUUsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUN2QixPQUFPLENBQUUsR0FBRyxDQUNaLGFBQWEsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQzlCLFVBQVUsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxJQUFJLEFBQzlCLENBQUMifQ== */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment$a(ctx) {
     	let div;
@@ -3683,6 +3777,8 @@ var app = (function () {
     }
 
     function instance$a($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Contenteditable", slots, []);
     	let { content = "" } = $$props;
     	const dispatch = createEventDispatcher();
     	const keypress = () => dispatch("input", { input: content });
@@ -3692,15 +3788,12 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Contenteditable> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Contenteditable", $$slots, []);
-
     	function div_input_handler() {
     		content = this.textContent;
     		$$invalidate(0, content);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("content" in $$props) $$invalidate(0, content = $$props.content);
     	};
 
@@ -3725,6 +3818,7 @@ var app = (function () {
     class Contenteditable extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1yv2dil-style")) add_css$9();
     		init(this, options, instance$a, create_fragment$a, safe_not_equal, { content: 0 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -3744,10 +3838,17 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Profile.svelte generated by Svelte v3.24.0 */
+    /* src/components/Profile.svelte generated by Svelte v3.32.3 */
     const file$b = "src/components/Profile.svelte";
 
-    // (52:0) {#if visible}
+    function add_css$a() {
+    	var style = element("style");
+    	style.id = "svelte-jbubou-style";
+    	style.textContent = ".columns.svelte-jbubou.svelte-jbubou{display:flex;padding:5px;margin-top:5px;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-jbubou div div.svelte-jbubou{margin-top:5px;margin-left:7px}img.svelte-jbubou.svelte-jbubou{margin-top:2px;margin-left:2px;border:1px solid #bbb;box-shadow:2px 2px 3px #eee}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiUHJvZmlsZS5zdmVsdGUiLCJzb3VyY2VzIjpbIlByb2ZpbGUuc3ZlbHRlIl0sInNvdXJjZXNDb250ZW50IjpbIjxzY3JpcHQ+XG4gIGltcG9ydCB7IG9uTW91bnQgfSBmcm9tICdzdmVsdGUnXG4gIGltcG9ydCB7IGZhZGUgfSBmcm9tICdzdmVsdGUvdHJhbnNpdGlvbidcblxuICBsZXQgbmFtZVxuICBsZXQgZW1haWxcbiAgbGV0IG5hbWVPcmdcbiAgbGV0IGVtYWlsT3JnXG4gIGxldCB0aHVtYm5haWxcbiAgbGV0IHZpc2libGUgPSBmYWxzZVxuICBjb25zdCBtYXhsZW5ndGggPSAyN1xuXG4gIGNvbnN0IHNob3J0ZW5TdHJpbmcgPSAoc3RyLCBtYXhsZW5ndGgpID0+IHtcbiAgICByZXR1cm4gc3RyLmxlbmd0aCA+IG1heGxlbmd0aFxuICAgICAgPyBzdHIuc3Vic3RyaW5nKDAsIG1heGxlbmd0aCAtIDMpICsgJy4uLidcbiAgICAgIDogc3RyXG4gIH1cblxuICBhc3luYyBmdW5jdGlvbiBsb2FkRGF0YSgpIHtcbiAgICBsZXQgdXNlckRhdGEgPSBhd2FpdCBmZXRjaChgaHR0cHM6Ly9yYW5kb211c2VyLm1lL2FwaS9gKS50aGVuKChyKSA9PlxuICAgICAgci5qc29uKClcbiAgICApXG4gICAgbmFtZU9yZyA9IGAke3VzZXJEYXRhLnJlc3VsdHNbMF0ubmFtZS50aXRsZX0gJHt1c2VyRGF0YS5yZXN1bHRzWzBdLm5hbWUuZmlyc3R9ICR7dXNlckRhdGEucmVzdWx0c1swXS5uYW1lLmxhc3R9YFxuICAgIGVtYWlsT3JnID0gdXNlckRhdGEucmVzdWx0c1swXS5lbWFpbFxuICAgIG5hbWUgPSBzaG9ydGVuU3RyaW5nKG5hbWVPcmcsIG1heGxlbmd0aClcbiAgICBlbWFpbCA9IHNob3J0ZW5TdHJpbmcoZW1haWxPcmcsIG1heGxlbmd0aClcbiAgICB0aHVtYm5haWwgPSB1c2VyRGF0YS5yZXN1bHRzWzBdLnBpY3R1cmUubWVkaXVtXG4gICAgdmlzaWJsZSA9IHRydWVcbiAgfVxuXG4gIG9uTW91bnQobG9hZERhdGEpXG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICAuY29sdW1ucyB7XG4gICAgZGlzcGxheTogZmxleDtcbiAgICBwYWRkaW5nOiA1cHg7XG4gICAgbWFyZ2luLXRvcDogNXB4O1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICB9XG4gIC5jb2x1bW5zIGRpdiBkaXYge1xuICAgIG1hcmdpbi10b3A6IDVweDtcbiAgICBtYXJnaW4tbGVmdDogN3B4O1xuICB9XG4gIGltZyB7XG4gICAgbWFyZ2luLXRvcDogMnB4O1xuICAgIG1hcmdpbi1sZWZ0OiAycHg7XG4gICAgYm9yZGVyOiAxcHggc29saWQgI2JiYjtcbiAgICBib3gtc2hhZG93OiAycHggMnB4IDNweCAjZWVlO1xuICB9XG48L3N0eWxlPlxuXG57I2lmIHZpc2libGV9XG4gIDxkaXYgY2xhc3M9XCJjb2x1bW5zXCIgdHJhbnNpdGlvbjpmYWRlPXt7IGRlbGF5OiAyNTAsIGR1cmF0aW9uOiAzMDAgfX0+XG4gICAgPGRpdj5cbiAgICAgIDxpbWcgc3JjPXt0aHVtYm5haWx9IGFsdD1cIlwiIC8+XG4gICAgPC9kaXY+XG4gICAgPGRpdj5cbiAgICAgIDxkaXYgdGl0bGU9e25hbWVPcmd9PntuYW1lfTwvZGl2PlxuICAgICAgPGRpdiB0aXRsZT17ZW1haWxPcmd9PntlbWFpbH08L2Rpdj5cbiAgICA8L2Rpdj5cbiAgPC9kaXY+XG57L2lmfVxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWtDRSxRQUFRLDRCQUFDLENBQUMsQUFDUixPQUFPLENBQUUsSUFBSSxDQUNiLE9BQU8sQ0FBRSxHQUFHLENBQ1osVUFBVSxDQUFFLEdBQUcsQ0FDZixNQUFNLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQ3RCLGFBQWEsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLEFBQ2hDLENBQUMsQUFDRCxzQkFBUSxDQUFDLEdBQUcsQ0FBQyxHQUFHLGNBQUMsQ0FBQyxBQUNoQixVQUFVLENBQUUsR0FBRyxDQUNmLFdBQVcsQ0FBRSxHQUFHLEFBQ2xCLENBQUMsQUFDRCxHQUFHLDRCQUFDLENBQUMsQUFDSCxVQUFVLENBQUUsR0FBRyxDQUNmLFdBQVcsQ0FBRSxHQUFHLENBQ2hCLE1BQU0sQ0FBRSxHQUFHLENBQUMsS0FBSyxDQUFDLElBQUksQ0FDdEIsVUFBVSxDQUFFLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUFDLElBQUksQUFDOUIsQ0FBQyJ9 */";
+    	append_dev(document.head, style);
+    }
+
+    // (54:0) {#if visible}
     function create_if_block$3(ctx) {
     	let div4;
     	let div0;
@@ -3778,19 +3879,19 @@ var app = (function () {
     			if (img.src !== (img_src_value = /*thumbnail*/ ctx[4])) attr_dev(img, "src", img_src_value);
     			attr_dev(img, "alt", "");
     			attr_dev(img, "class", "svelte-jbubou");
-    			add_location(img, file$b, 54, 6, 1258);
+    			add_location(img, file$b, 56, 6, 1271);
     			attr_dev(div0, "class", "svelte-jbubou");
-    			add_location(div0, file$b, 53, 4, 1246);
+    			add_location(div0, file$b, 55, 4, 1259);
     			attr_dev(div1, "title", /*nameOrg*/ ctx[2]);
     			attr_dev(div1, "class", "svelte-jbubou");
-    			add_location(div1, file$b, 57, 6, 1316);
+    			add_location(div1, file$b, 59, 6, 1329);
     			attr_dev(div2, "title", /*emailOrg*/ ctx[3]);
     			attr_dev(div2, "class", "svelte-jbubou");
-    			add_location(div2, file$b, 58, 6, 1356);
+    			add_location(div2, file$b, 60, 6, 1369);
     			attr_dev(div3, "class", "svelte-jbubou");
-    			add_location(div3, file$b, 56, 4, 1304);
+    			add_location(div3, file$b, 58, 4, 1317);
     			attr_dev(div4, "class", "columns svelte-jbubou");
-    			add_location(div4, file$b, 52, 2, 1172);
+    			add_location(div4, file$b, 54, 2, 1185);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div4, anchor);
@@ -3847,7 +3948,7 @@ var app = (function () {
     		block,
     		id: create_if_block$3.name,
     		type: "if",
-    		source: "(52:0) {#if visible}",
+    		source: "(54:0) {#if visible}",
     		ctx
     	});
 
@@ -3925,6 +4026,8 @@ var app = (function () {
     const maxlength = 27;
 
     function instance$b($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("Profile", slots, []);
     	let name;
     	let email;
     	let nameOrg;
@@ -3954,9 +4057,6 @@ var app = (function () {
     	Object.keys($$props).forEach(key => {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Profile> was created with unknown prop '${key}'`);
     	});
-
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("Profile", $$slots, []);
 
     	$$self.$capture_state = () => ({
     		onMount,
@@ -3991,6 +4091,7 @@ var app = (function () {
     class Profile extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-jbubou-style")) add_css$a();
     		init(this, options, instance$b, create_fragment$b, safe_not_equal, {});
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -4002,9 +4103,16 @@ var app = (function () {
     	}
     }
 
-    /* src/components/EventLog.svelte generated by Svelte v3.24.0 */
+    /* src/components/EventLog.svelte generated by Svelte v3.32.3 */
 
     const file$c = "src/components/EventLog.svelte";
+
+    function add_css$b() {
+    	var style = element("style");
+    	style.id = "svelte-16v21lz-style";
+    	style.textContent = "textarea.svelte-16v21lz{background-color:black;color:lightgray;font-size:0.7em;width:100%;height:100px;padding-bottom:20px;overflow-y:scroll}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiRXZlbnRMb2cuc3ZlbHRlIiwic291cmNlcyI6WyJFdmVudExvZy5zdmVsdGUiXSwic291cmNlc0NvbnRlbnQiOlsiPHNjcmlwdD5cbiAgZXhwb3J0IGxldCBzaG93TG9ncyA9IGZhbHNlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICB0ZXh0YXJlYSB7XG4gICAgYmFja2dyb3VuZC1jb2xvcjogYmxhY2s7XG4gICAgY29sb3I6IGxpZ2h0Z3JheTtcbiAgICBmb250LXNpemU6IDAuN2VtO1xuICAgIHdpZHRoOiAxMDAlO1xuICAgIGhlaWdodDogMTAwcHg7XG4gICAgcGFkZGluZy1ib3R0b206IDIwcHg7XG4gICAgb3ZlcmZsb3cteTogc2Nyb2xsO1xuICB9XG48L3N0eWxlPlxuXG48c3ZlbHRlOm9wdGlvbnMgYWNjZXNzb3JzPXt0cnVlfSAvPlxuXG57I2lmIHNob3dMb2dzfVxuICA8dGV4dGFyZWEgaWQ9XCJldmVudExvZ1wiPntsb2dzfTwvdGV4dGFyZWE+XG57L2lmfVxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQU1FLFFBQVEsZUFBQyxDQUFDLEFBQ1IsZ0JBQWdCLENBQUUsS0FBSyxDQUN2QixLQUFLLENBQUUsU0FBUyxDQUNoQixTQUFTLENBQUUsS0FBSyxDQUNoQixLQUFLLENBQUUsSUFBSSxDQUNYLE1BQU0sQ0FBRSxLQUFLLENBQ2IsY0FBYyxDQUFFLElBQUksQ0FDcEIsVUFBVSxDQUFFLE1BQU0sQUFDcEIsQ0FBQyJ9 */";
+    	append_dev(document.head, style);
+    }
 
     // (20:0) {#if showLogs}
     function create_if_block$4(ctx) {
@@ -4092,6 +4200,8 @@ var app = (function () {
     }
 
     function instance$c($$self, $$props, $$invalidate) {
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("EventLog", slots, []);
     	let { showLogs = false } = $$props;
     	let { logs = "" } = $$props;
     	const writable_props = ["showLogs", "logs"];
@@ -4100,10 +4210,7 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<EventLog> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("EventLog", $$slots, []);
-
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("showLogs" in $$props) $$invalidate(0, showLogs = $$props.showLogs);
     		if ("logs" in $$props) $$invalidate(1, logs = $$props.logs);
     	};
@@ -4125,6 +4232,7 @@ var app = (function () {
     class EventLog extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-16v21lz-style")) add_css$b();
     		init(this, options, instance$c, create_fragment$c, safe_not_equal, { showLogs: 0, logs: 1 });
 
     		dispatch_dev("SvelteRegisterComponent", {
@@ -4154,8 +4262,15 @@ var app = (function () {
     	}
     }
 
-    /* src/App.svelte generated by Svelte v3.24.0 */
+    /* src/App.svelte generated by Svelte v3.32.3 */
     const file$d = "src/App.svelte";
+
+    function add_css$c() {
+    	var style = element("style");
+    	style.id = "svelte-1plrz5d-style";
+    	style.textContent = "#container.svelte-1plrz5d.svelte-1plrz5d{height:90%;width:75%;padding:2% 2% 3% 3%;margin:0 auto;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-1plrz5d.svelte-1plrz5d{display:flex;flex-wrap:wrap;padding:3px}.columns.svelte-1plrz5d>.svelte-1plrz5d{flex-grow:1;flex-shrink:1;flex-basis:300px}.columns.svelte-1plrz5d .left-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.columns.svelte-1plrz5d .right-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.footer.svelte-1plrz5d.svelte-1plrz5d{margin:7px;font-size:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQXBwLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQXBwLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBlbGFwc2VkIH0gZnJvbSAnLi9zdG9yZXMuanMnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBpbXBvcnQgSGVhZGxpbmUgZnJvbSAnLi9jb21wb25lbnRzL0hlYWRsaW5lLnN2ZWx0ZSdcbiAgaW1wb3J0IExpc3QgZnJvbSAnLi9jb21wb25lbnRzL0xpc3Quc3ZlbHRlJ1xuICBpbXBvcnQgVGFibGUgZnJvbSAnLi9jb21wb25lbnRzL1RhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsRGlhbG9nIGZyb20gJy4vY29tcG9uZW50cy9Nb2RhbERpYWxvZy5zdmVsdGUnXG4gIGltcG9ydCBNb2RhbEZvcm0gZnJvbSAnLi9jb21wb25lbnRzL01vZGFsRm9ybS5zdmVsdGUnXG4gIGltcG9ydCBVc2VySW5wdXQgZnJvbSAnLi9jb21wb25lbnRzL1VzZXJJbnB1dC5zdmVsdGUnXG4gIGltcG9ydCBSYWRpb0JveGVzIGZyb20gJy4vY29tcG9uZW50cy9SYWRpb0JveGVzLnN2ZWx0ZSdcbiAgaW1wb3J0IENvbnRlbnRlZGl0YWJsZSBmcm9tICcuL2NvbXBvbmVudHMvQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IFByb2ZpbGUgZnJvbSAnLi9jb21wb25lbnRzL1Byb2ZpbGUuc3ZlbHRlJ1xuICBpbXBvcnQgRXZlbnRMb2cgZnJvbSAnLi9jb21wb25lbnRzL0V2ZW50TG9nLnN2ZWx0ZSdcblxuICBleHBvcnQgbGV0IG1lc3NhZ2VcbiAgZXhwb3J0IGxldCBpdGVtSWRcbiAgZXhwb3J0IGxldCBsaXN0XG4gIGV4cG9ydCBsZXQgdGFibGVcbiAgZXhwb3J0IGxldCBjdXJyZW50SXRlbVxuICBleHBvcnQgbGV0IHVzZXJJbnB1dFxuICBleHBvcnQgbGV0IG1vZGFsRGlhbG9nXG4gIGV4cG9ydCBsZXQgc2VsZWN0aW9uc1xuICBleHBvcnQgbGV0IHNob3dGb3JtTW9kYWxcbiAgZXhwb3J0IGxldCBzZWxlY3RlZCA9ICcnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgc2hvd0xvZ3MgPSB0cnVlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG5cbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuXG4gIGNvbnN0IGxpc3RTZWxlY3Rpb24gPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdsaXN0U2VsZWN0aW9uJywgZXZlbnQuZGV0YWlsLml0ZW0pXG4gIGNvbnN0IGhhbmRsZUNsaWNrZWRSb3cgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVDbGlja2VkUm93JywgZXZlbnQuZGV0YWlsKVxuICBjb25zdCBzZW5kRm9ybSA9IChldmVudCkgPT4gZGlzcGF0Y2goJ3NlbmRGb3JtJywgZXZlbnQuZGV0YWlsKVxuICBjb25zdCBoYW5kbGVFdmVudCA9IChldmVudCkgPT4gZGlzcGF0Y2goJ2hhbmRsZUV2ZW50JywgZXZlbnQuZGV0YWlsKVxuICBjb25zdCBoYW5kbGVVc2VyRXZlbnQgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVVc2VyRXZlbnQnLCBldmVudC5kZXRhaWwpXG48L3NjcmlwdD5cblxuPHN0eWxlPlxuICAjY29udGFpbmVyIHtcbiAgICBoZWlnaHQ6IDkwJTtcbiAgICB3aWR0aDogNzUlO1xuICAgIHBhZGRpbmc6IDIlIDIlIDMlIDMlO1xuICAgIG1hcmdpbjogMCBhdXRvO1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICB9XG4gIC5jb2x1bW5zIHtcbiAgICBkaXNwbGF5OiBmbGV4O1xuICAgIGZsZXgtd3JhcDogd3JhcDtcbiAgICBwYWRkaW5nOiAzcHg7XG4gIH1cbiAgLmNvbHVtbnMgPiAqIHtcbiAgICBmbGV4LWdyb3c6IDE7XG4gICAgZmxleC1zaHJpbms6IDE7XG4gICAgZmxleC1iYXNpczogMzAwcHg7XG4gIH1cbiAgLmNvbHVtbnMgLmxlZnQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuY29sdW1ucyAucmlnaHQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuZm9vdGVyIHtcbiAgICBtYXJnaW46IDdweDtcbiAgICBmb250LXNpemU6IDEwcHg7XG4gIH1cbjwvc3R5bGU+XG5cbjxzdmVsdGU6b3B0aW9ucyBhY2Nlc3NvcnM9e3RydWV9IC8+XG5cbjxkaXYgaWQ9XCJjb250YWluZXJcIj5cbiAgPGRpdj5cbiAgICA8SGVhZGxpbmUge21lc3NhZ2V9IHtpdGVtSWR9IC8+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiY29sdW1uc1wiPlxuICAgIDxkaXYgY2xhc3M9XCJsZWZ0LWNvbHVtblwiPlxuICAgICAgPExpc3Qge2xpc3R9IHtjdXJyZW50SXRlbX0gb246c2VsZWN0PXtsaXN0U2VsZWN0aW9ufSBvbjplZGl0IC8+XG5cbiAgICAgIDxVc2VySW5wdXQge3VzZXJJbnB1dH0gb246aW5wdXQgLz5cblxuICAgICAgPENvbnRlbnRlZGl0YWJsZSBjb250ZW50PVwiVGhpcyBjb250ZW50IGlzIGVkaXRhYmxlLlwiIG9uOmlucHV0IC8+XG5cbiAgICAgIDxNb2RhbERpYWxvZyB7Li4ubW9kYWxEaWFsb2d9IG9uOmNsb3NlIC8+XG5cbiAgICAgIDxNb2RhbEZvcm1cbiAgICAgICAgc2hvd01vZGFsPXtzaG93Rm9ybU1vZGFsfVxuICAgICAgICB7dmFsdWVOYW1lfVxuICAgICAgICB7dmFsdWVVcmx9XG4gICAgICAgIG9uOnNlbmRGb3JtPXtzZW5kRm9ybX1cbiAgICAgICAgb246Y2xvc2UgLz5cbiAgICA8L2Rpdj5cbiAgICA8ZGl2IGNsYXNzPVwicmlnaHQtY29sdW1uXCI+XG4gICAgICA8VGFibGUge3NlbGVjdGVkfSBkYXRhPXt0YWJsZX0gb246Y2xpY2tlZFJvdz17aGFuZGxlQ2xpY2tlZFJvd30gLz5cblxuICAgICAgPFJhZGlvQm94ZXMge3NlbGVjdGlvbnN9IG9uOnNlbGVjdD17aGFuZGxlRXZlbnR9IC8+XG5cbiAgICAgIDxQcm9maWxlIC8+XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiZm9vdGVyXCI+XG4gICAgPGRpdj5cbiAgICAgIFRoZSB1c2VyIGlzIGluYWN0aXZlIGZvciB7JGVsYXBzZWR9IHskZWxhcHNlZCA9PT0gMSA/ICdzZWNvbmQnIDogJ3NlY29uZHMnfVxuICAgIDwvZGl2PlxuICA8L2Rpdj5cbiAgPEV2ZW50TG9nIHtzaG93TG9nc30ge2xvZ3N9IC8+XG48L2Rpdj5cblxuPHN2ZWx0ZTp3aW5kb3dcbiAgb246bW91c2Vtb3ZlPXtoYW5kbGVVc2VyRXZlbnR9XG4gIG9uOmNsaWNrPXtoYW5kbGVVc2VyRXZlbnR9XG4gIG9uOmtleWRvd249e2hhbmRsZVVzZXJFdmVudH0gLz5cbiJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiQUF3Q0UsVUFBVSw4QkFBQyxDQUFDLEFBQ1YsTUFBTSxDQUFFLEdBQUcsQ0FDWCxLQUFLLENBQUUsR0FBRyxDQUNWLE9BQU8sQ0FBRSxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQ3BCLE1BQU0sQ0FBRSxDQUFDLENBQUMsSUFBSSxDQUNkLE1BQU0sQ0FBRSxHQUFHLENBQUMsS0FBSyxDQUFDLElBQUksQ0FDdEIsYUFBYSxDQUFFLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQUFDaEMsQ0FBQyxBQUNELFFBQVEsOEJBQUMsQ0FBQyxBQUNSLE9BQU8sQ0FBRSxJQUFJLENBQ2IsU0FBUyxDQUFFLElBQUksQ0FDZixPQUFPLENBQUUsR0FBRyxBQUNkLENBQUMsQUFDRCx1QkFBUSxDQUFHLGVBQUUsQ0FBQyxBQUNaLFNBQVMsQ0FBRSxDQUFDLENBQ1osV0FBVyxDQUFFLENBQUMsQ0FDZCxVQUFVLENBQUUsS0FBSyxBQUNuQixDQUFDLEFBQ0QsdUJBQVEsQ0FBQyxZQUFZLGVBQUMsQ0FBQyxBQUNyQixPQUFPLENBQUUsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxBQUN0QixDQUFDLEFBQ0QsdUJBQVEsQ0FBQyxhQUFhLGVBQUMsQ0FBQyxBQUN0QixPQUFPLENBQUUsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxBQUN0QixDQUFDLEFBQ0QsT0FBTyw4QkFBQyxDQUFDLEFBQ1AsTUFBTSxDQUFFLEdBQUcsQ0FDWCxTQUFTLENBQUUsSUFBSSxBQUNqQixDQUFDIn0= */";
+    	append_dev(document.head, style);
+    }
 
     function create_fragment$d(ctx) {
     	let div6;
@@ -4307,19 +4422,19 @@ var app = (function () {
     			t12 = text(t12_value);
     			t13 = space();
     			create_component(eventlog.$$.fragment);
-    			add_location(div0, file$d, 73, 2, 1974);
+    			add_location(div0, file$d, 73, 2, 1984);
     			attr_dev(div1, "class", "left-column svelte-1plrz5d");
-    			add_location(div1, file$d, 77, 4, 2053);
+    			add_location(div1, file$d, 77, 4, 2063);
     			attr_dev(div2, "class", "right-column svelte-1plrz5d");
-    			add_location(div2, file$d, 93, 4, 2469);
+    			add_location(div2, file$d, 93, 4, 2479);
     			attr_dev(div3, "class", "columns svelte-1plrz5d");
-    			add_location(div3, file$d, 76, 2, 2027);
-    			add_location(div4, file$d, 102, 4, 2694);
+    			add_location(div3, file$d, 76, 2, 2037);
+    			add_location(div4, file$d, 102, 4, 2704);
     			attr_dev(div5, "class", "footer svelte-1plrz5d");
-    			add_location(div5, file$d, 101, 2, 2669);
+    			add_location(div5, file$d, 101, 2, 2679);
     			attr_dev(div6, "id", "container");
     			attr_dev(div6, "class", "svelte-1plrz5d");
-    			add_location(div6, file$d, 72, 0, 1951);
+    			add_location(div6, file$d, 72, 0, 1961);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4464,6 +4579,8 @@ var app = (function () {
     	let $elapsed;
     	validate_store(elapsed, "elapsed");
     	component_subscribe($$self, elapsed, $$value => $$invalidate(14, $elapsed = $$value));
+    	let { $$slots: slots = {}, $$scope } = $$props;
+    	validate_slots("App", slots, []);
     	let { message } = $$props;
     	let { itemId } = $$props;
     	let { list } = $$props;
@@ -4506,9 +4623,6 @@ var app = (function () {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<App> was created with unknown prop '${key}'`);
     	});
 
-    	let { $$slots = {}, $$scope } = $$props;
-    	validate_slots("App", $$slots, []);
-
     	function edit_handler(event) {
     		bubble($$self, event);
     	}
@@ -4529,7 +4643,7 @@ var app = (function () {
     		bubble($$self, event);
     	}
 
-    	$$self.$set = $$props => {
+    	$$self.$$set = $$props => {
     		if ("message" in $$props) $$invalidate(0, message = $$props.message);
     		if ("itemId" in $$props) $$invalidate(1, itemId = $$props.itemId);
     		if ("list" in $$props) $$invalidate(2, list = $$props.list);
@@ -4635,6 +4749,7 @@ var app = (function () {
     class App extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
+    		if (!document.getElementById("svelte-1plrz5d-style")) add_css$c();
 
     		init(this, options, instance$d, create_fragment$d, safe_not_equal, {
     			message: 0,
@@ -4880,7 +4995,7 @@ var app = (function () {
       props: appProps,
     });
 
-    const logEvent = event => {
+    const logEvent = (event) => {
       //let logs = (app.logs) ? app.logs + '\n' + JSON.stringify(event) : JSON.stringify(event);
       app.$set({
         logs: app.logs
@@ -4892,14 +5007,14 @@ var app = (function () {
       ).scrollHeight;
     };
 
-    app.$on('listSelection', event => {
+    app.$on('listSelection', (event) => {
       app.$set({ message: `Clicked item ${event.detail.name}` });
       app.$set({ itemId: `Id: ${event.detail.id}` });
       app.$set({ selected: event.detail.name });
       logEvent(event.detail);
     });
 
-    app.$on('handleClickedRow', event => {
+    app.$on('handleClickedRow', (event) => {
       app.$set({ message: `Clicked item ${event.detail.name}` });
       app.$set({ itemId: `Id: ${event.detail.id}` });
       app.$set({ selected: event.detail.name });
@@ -4907,31 +5022,31 @@ var app = (function () {
       logEvent(event.detail);
     });
 
-    app.$on('edit', event => {
+    app.$on('edit', (event) => {
       app.$set({ valueName: event.detail.item.name });
       app.$set({ valueUrl: event.detail.item.url });
       app.$set({ showFormModal: true });
       logEvent(event.detail);
     });
 
-    app.$on('close', event => {
+    app.$on('close', (event) => {
       app.$set({ showFormModal: false });
       logEvent(event.detail);
     });
 
-    app.$on('handleEvent', event => {
+    app.$on('handleEvent', (event) => {
       logEvent(event.detail);
     });
 
-    app.$on('input', event => {
+    app.$on('input', (event) => {
       logEvent(event.detail);
     });
 
-    app.$on('handleUserEvent', event => {
+    app.$on('handleUserEvent', (event) => {
       userActivity();
     });
 
-    app.$on('sendForm', event => {
+    app.$on('sendForm', (event) => {
       app.$set({ showFormModal: false });
       logEvent(event.detail);
     });
