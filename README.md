@@ -48,7 +48,7 @@ It's only an example to use a store and display the inactive time of a user and 
 
 ## Browse
 
-Navigate to [localhost:5000](http://localhost:5000).
+Navigate to [localhost:10001](http://localhost:10001).
 
 ## Cypress
 

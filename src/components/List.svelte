@@ -13,14 +13,6 @@
   }
 </script>
 
-<style>
-  ul {
-    list-style: none;
-    margin: 0px;
-    padding: 0px;
-  }
-</style>
-
 <div class="list-container">
   <ul>
     {#each list as item}
@@ -28,3 +20,11 @@
     {/each}
   </ul>
 </div>
+
+<style>
+  ul {
+    list-style: none;
+    margin: 0px;
+    padding: 0px;
+  }
+</style>

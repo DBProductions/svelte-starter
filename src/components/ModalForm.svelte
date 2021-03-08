@@ -23,18 +23,13 @@
   }
 </script>
 
-<style>
-  input[type='text'] {
-    width: 90%;
-  }
-</style>
-
 {#if showModal}
   <Modal
     modalId="modalForm"
     {modalForm}
     on:close={close}
-    on:sendForm={sendForm}>
+    on:sendForm={sendForm}
+  >
     <h2 slot="header">{headline}</h2>
     <div>
       <input type="text" bind:value={valueName} placeholder={placeholderName} />
@@ -44,3 +39,9 @@
     </div>
   </Modal>
 {/if}
+
+<style>
+  input[type='text'] {
+    width: 90%;
+  }
+</style>

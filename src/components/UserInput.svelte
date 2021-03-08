@@ -10,6 +10,12 @@
   }
 </script>
 
+<div class="user-input">
+  Two-way binding
+  <input type="text" bind:value={userInput} on:keyup={keypress} />
+  <span>{userInput}</span>
+</div>
+
 <style>
   input[type='text'] {
     border-radius: 3px 3px 3px 3px;
@@ -22,9 +28,3 @@
     font-size: 12pt;
   }
 </style>
-
-<div class="user-input">
-  Two-way binding
-  <input type="text" bind:value={userInput} on:keyup={keypress} />
-  <span>{userInput}</span>
-</div>

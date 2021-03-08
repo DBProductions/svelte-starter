@@ -10,6 +10,16 @@
   const edit = () => dispatch('edit', { item: item })
 </script>
 
+<li class:active={currentItem === item.id}>
+  <div style="float:right;">
+    <buttton on:click={edit(item)}>Edit</buttton>
+  </div>
+  <div on:click={select(item)}>
+    {item.name} -
+    <small>{item.url}</small>
+  </div>
+</li>
+
 <style>
   li {
     border: 1px solid #ddd;
@@ -26,13 +36,3 @@
     border: 1px solid #aaa;
   }
 </style>
-
-<li class:active={currentItem === item.id}>
-  <div style="float:right;">
-    <buttton on:click={edit(item)}>Edit</buttton>
-  </div>
-  <div on:click={select(item)}>
-    {item.name} -
-    <small>{item.url}</small>
-  </div>
-</li>

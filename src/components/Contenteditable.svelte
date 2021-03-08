@@ -8,6 +8,13 @@
   const keypress = () => dispatch('input', { input: content })
 </script>
 
+<div
+  class="contentBox"
+  contenteditable="true"
+  bind:textContent={content}
+  on:keyup={keypress}
+/>
+
 <style>
   .contentBox {
     margin: 7px 0px 7px 0px;
@@ -16,9 +23,3 @@
     box-shadow: 2px 2px 3px #eee;
   }
 </style>
-
-<div
-  class="contentBox"
-  contenteditable="true"
-  bind:textContent={content}
-  on:keyup={keypress} />

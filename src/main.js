@@ -8,7 +8,6 @@ const app = new App({
 })
 
 const logEvent = (event) => {
-  //let logs = (app.logs) ? app.logs + '\n' + JSON.stringify(event) : JSON.stringify(event);
   app.$set({
     logs: app.logs
       ? app.logs + '\n' + JSON.stringify(event)

@@ -41,6 +41,33 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
+<div class="modal-background" on:click={close} />
+
+<div
+  id={modalId}
+  class="modal"
+  role="dialog"
+  aria-modal="true"
+  bind:this={modal}
+  transition:fly={{
+    delay: 0,
+    duration: 1000,
+    y: -500,
+    opacity: 0.2,
+    easing: quintOut,
+  }}
+>
+  <slot name="header" />
+  <slot />
+  <!-- svelte-ignore a11y-autofocus -->
+  {#if modalForm}
+    <Button send on:click={send}>Send</Button>
+  {/if}
+  <Button id="modalCloseBtn" on:click={close}>Close</Button>
+</div>
+
 <style>
   .modal-background {
     position: fixed;
@@ -65,23 +92,3 @@
     text-align: center;
   }
 </style>
-
-<svelte:window on:keydown={handleKeydown} />
-
-<div class="modal-background" on:click={close} />
-
-<div
-  id={modalId}
-  class="modal"
-  role="dialog"
-  aria-modal="true"
-  bind:this={modal}
-  transition:fly={{ delay: 0, duration: 1000, y: -500, opacity: 0.2, easing: quintOut }}>
-  <slot name="header" />
-  <slot />
-  <!-- svelte-ignore a11y-autofocus -->
-  {#if modalForm}
-    <Button send on:click={send}>Send</Button>
-  {/if}
-  <Button id="modalCloseBtn" on:click={close}>Close</Button>
-</div>

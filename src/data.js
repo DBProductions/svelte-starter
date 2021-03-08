@@ -6,16 +6,19 @@ export const appProps = {
   list: [
     { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
     { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
-    { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
-    { id: 4, name: 'Cypress', url: 'https://cypress.io/' },
+    { id: 3, name: 'Cypress', url: 'https://cypress.io/' },
+    { id: 4, name: 'Prettier', url: 'https://prettier.io/' },
   ],
   table: {
-    header: ['Name', 'URL'],
+    header: [
+      { value: 'Name', type: 'string' },
+      { value: 'URL', type: 'string' },
+    ],
     entries: [
       { id: 1, name: 'Svelte', url: 'https://svelte.technology/' },
       { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
-      { id: 3, name: 'Sapper', url: 'https://sapper.svelte.dev/' },
-      { id: 4, name: 'Cypress', url: 'https://cypress.io/' },
+      { id: 3, name: 'Cypress', url: 'https://cypress.io/' },
+      { id: 4, name: 'Prettier', url: 'https://prettier.io/' },
     ],
   },
   showFormModal: false,

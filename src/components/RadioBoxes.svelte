@@ -15,6 +15,32 @@
   }
 </script>
 
+<div class="selection-container">
+  <div>
+    <fieldset>
+      {#each selections as { selector, label }, i}
+        <label
+          class:active={current === selector}
+          on:click={setSelection(selector)}
+        >
+          {label}
+          <input
+            type="radio"
+            name="selection"
+            id={selector}
+            title={selector}
+            value={selector}
+          />
+        </label>
+      {/each}
+    </fieldset>
+  </div>
+  <div>
+    The user selected {current ? current : 'nothing'}.
+    {@html information}
+  </div>
+</div>
+
 <style>
   .selection-container {
     display: flex;
@@ -29,33 +55,8 @@
   fieldset {
     border: 1px solid #eee;
     border-radius: 5px 5px 5px 5px;
-    display: flex;
   }
   .active {
     color: #00f;
   }
 </style>
-
-<div class="selection-container">
-  <div>
-    <fieldset>
-      {#each selections as { selector, label }, i}
-        <label
-          class:active={current === selector}
-          on:click={setSelection(selector)}>
-          {label}
-          <input
-            type="radio"
-            name="selection"
-            id={selector}
-            title={selector}
-            value={selector} />
-        </label>
-      {/each}
-    </fieldset>
-  </div>
-  <div>
-    The user selected {current ? current : 'nothing'}.
-    {@html information}
-  </div>
-</div>

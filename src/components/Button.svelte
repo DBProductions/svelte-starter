@@ -3,6 +3,10 @@
   export let id = 'btn'
 </script>
 
+<button {id} class:sendBtn={send === true} on:click>
+  <slot />
+</button>
+
 <style>
   button {
     font-size: 0.9em;
@@ -18,7 +22,3 @@
     color: white;
   }
 </style>
-
-<button {id} class:sendBtn={send === true} on:click>
-  <slot />
-</button>

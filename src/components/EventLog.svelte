@@ -1,7 +1,13 @@
+<svelte:options accessors={true} />
+
 <script>
   export let showLogs = false
   export let logs = ''
 </script>
+
+{#if showLogs}
+  <textarea id="eventLog">{logs}</textarea>
+{/if}
 
 <style>
   textarea {
@@ -14,9 +20,3 @@
     overflow-y: scroll;
   }
 </style>
-
-<svelte:options accessors={true} />
-
-{#if showLogs}
-  <textarea id="eventLog">{logs}</textarea>
-{/if}

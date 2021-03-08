@@ -54,7 +54,7 @@ describe('List Component', () => {
 
     cy.get('#container > div:nth-child(1) > h1').should(
       'have.text',
-      'Clicked item Sapper Id: 3'
+      'Clicked item Cypress Id: 3'
     )
 
     cy.get(
@@ -63,7 +63,7 @@ describe('List Component', () => {
 
     cy.get('#modalForm > div:nth-child(2) > input').should(
       'have.value',
-      'Sapper'
+      'Cypress'
     )
 
     cy.get('#modalForm > button.sendBtn').click()
@@ -75,7 +75,7 @@ describe('List Component', () => {
 
     cy.get('#container > div:nth-child(1) > h1').should(
       'have.text',
-      'Clicked item Cypress Id: 4'
+      'Clicked item Prettier Id: 4'
     )
 
     cy.get(
@@ -84,7 +84,7 @@ describe('List Component', () => {
 
     cy.get('#modalForm > div:nth-child(2) > input').should(
       'have.value',
-      'Cypress'
+      'Prettier'
     )
 
     cy.get('#modalForm > button.sendBtn').click()

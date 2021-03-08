@@ -3,6 +3,60 @@ describe('Table Component', () => {
     cy.visit('/')
   })
 
+  it('Sort table', () => {
+    cy.get('table.tbl > thead > tr > th:nth-child(1)').click()
+
+    cy.get('table.tbl > thead > tr > th:nth-child(1)')
+      .invoke('attr', 'data-order')
+      .should('contain', 'desc')
+
+    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(1)').should(
+      'have.text',
+      'Cypress'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(1)').should(
+      'have.text',
+      'Prettier'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(1)').should(
+      'have.text',
+      'Rollup'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(1)').should(
+      'have.text',
+      'Svelte'
+    )
+
+    cy.get('table.tbl > thead > tr > th:nth-child(1)').click()
+
+    cy.get('table.tbl > thead > tr > th:nth-child(1)')
+      .invoke('attr', 'data-order')
+      .should('contain', 'asc')
+
+    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(1)').should(
+      'have.text',
+      'Svelte'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(1)').should(
+      'have.text',
+      'Rollup'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(1)').should(
+      'have.text',
+      'Prettier'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(1)').should(
+      'have.text',
+      'Cypress'
+    )
+  })
+
   it('Click table row', () => {
     cy.get('table.tbl > tbody > tr:nth-child(2)')
       .click()
@@ -28,7 +82,7 @@ describe('Table Component', () => {
 
     cy.get('#container > div:nth-child(1) > h1').should(
       'have.text',
-      'Clicked item Sapper Id: 3'
+      'Clicked item Cypress Id: 3'
     )
 
     cy.get('table.tbl > tbody > tr:nth-child(4)')
@@ -37,7 +91,7 @@ describe('Table Component', () => {
 
     cy.get('#container > div:nth-child(1) > h1').should(
       'have.text',
-      'Clicked item Cypress Id: 4'
+      'Clicked item Prettier Id: 4'
     )
   })
 })

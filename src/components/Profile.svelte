@@ -31,6 +31,18 @@
   onMount(loadData)
 </script>
 
+{#if visible}
+  <div class="columns" transition:fade={{ delay: 250, duration: 300 }}>
+    <div>
+      <img src={thumbnail} alt="" />
+    </div>
+    <div>
+      <div title={nameOrg}>{name}</div>
+      <div title={emailOrg}>{email}</div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .columns {
     display: flex;
@@ -50,15 +62,3 @@
     box-shadow: 2px 2px 3px #eee;
   }
 </style>
-
-{#if visible}
-  <div class="columns" transition:fade={{ delay: 250, duration: 300 }}>
-    <div>
-      <img src={thumbnail} alt="" />
-    </div>
-    <div>
-      <div title={nameOrg}>{name}</div>
-      <div title={emailOrg}>{email}</div>
-    </div>
-  </div>
-{/if}

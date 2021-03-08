@@ -3,6 +3,11 @@
   export let itemId = ''
 </script>
 
+<h1>
+  {message}
+  <small>{itemId}</small>
+</h1>
+
 <style>
   h1 {
     font-size: 24pt;
@@ -12,8 +17,3 @@
     color: #bbb;
   }
 </style>
-
-<h1>
-  {message}
-  <small>{itemId}</small>
-</h1>
