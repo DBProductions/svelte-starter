@@ -19,10 +19,10 @@
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.1.0",
     "@rollup/plugin-node-resolve": "^11.2.0",
-    "cypress": "^6.6.0",
+    "cypress": "^6.8.0",
     "prettier": "^2.2.1",
     "prettier-plugin-svelte": "^2.2.0",
-    "rollup": "^2.40.0",
+    "rollup": "^2.41.5",
     "rollup-plugin-livereload": "^2.0.0",
     "rollup-plugin-serve": "^1.1.0",
     "rollup-plugin-svelte": "^7.1.0",
