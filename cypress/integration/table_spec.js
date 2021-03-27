@@ -10,24 +10,24 @@ describe('Table Component', () => {
       .invoke('attr', 'data-order')
       .should('contain', 'desc')
 
-    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(1)').should(
+    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(2)').should(
       'have.text',
-      'Cypress'
+      'Svelte'
     )
 
-    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(1)').should(
-      'have.text',
-      'Prettier'
-    )
-
-    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(1)').should(
+    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(2)').should(
       'have.text',
       'Rollup'
     )
 
-    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(1)').should(
+    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(2)').should(
       'have.text',
-      'Svelte'
+      'Cypress'
+    )
+
+    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(2)').should(
+      'have.text',
+      'Prettier'
     )
 
     cy.get('table.tbl > thead > tr > th:nth-child(1)').click()
@@ -36,25 +36,37 @@ describe('Table Component', () => {
       .invoke('attr', 'data-order')
       .should('contain', 'asc')
 
-    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(1)').should(
+    cy.get('table.tbl > thead > tr > th:nth-child(2)').click()
+
+    cy.get('table.tbl > thead > tr > th:nth-child(2)')
+      .invoke('attr', 'data-order')
+      .should('contain', 'desc')
+
+    cy.get('table.tbl > tbody > tr:nth-child(1) > td:nth-child(2)').should(
       'have.text',
-      'Svelte'
+      'Cypress'
     )
 
-    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(1)').should(
-      'have.text',
-      'Rollup'
-    )
-
-    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(1)').should(
+    cy.get('table.tbl > tbody > tr:nth-child(2) > td:nth-child(2)').should(
       'have.text',
       'Prettier'
     )
 
-    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(1)').should(
+    cy.get('table.tbl > tbody > tr:nth-child(3) > td:nth-child(2)').should(
       'have.text',
-      'Cypress'
+      'Rollup'
     )
+
+    cy.get('table.tbl > tbody > tr:nth-child(4) > td:nth-child(2)').should(
+      'have.text',
+      'Svelte'
+    )
+
+    cy.get('table.tbl > thead > tr > th:nth-child(2)').click()
+
+    cy.get('table.tbl > thead > tr > th:nth-child(2)')
+      .invoke('attr', 'data-order')
+      .should('contain', 'asc')
   })
 
   it('Click table row', () => {

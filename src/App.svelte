@@ -30,8 +30,8 @@
   export let showLogs = true
   export let logs = ''
 
+  // event handling
   const dispatch = createEventDispatcher()
-
   const listSelection = (event) => dispatch('listSelection', event.detail.item)
   const handleClickedRow = (event) => dispatch('handleClickedRow', event.detail)
   const sendForm = (event) => dispatch('sendForm', event.detail)

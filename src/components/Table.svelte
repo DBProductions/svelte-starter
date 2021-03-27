@@ -65,6 +65,7 @@
   <tbody>
     {#each data.entries as entry}
       <tr class:active={selected === entry.name} on:click={handleClick(entry)}>
+        <td>{entry.id}</td>
         <td>{entry.name}</td>
         <td>{entry.url}</td>
       </tr>

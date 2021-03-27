@@ -11,6 +11,7 @@ export const appProps = {
   ],
   table: {
     header: [
+      { value: 'ID', type: 'number' },
       { value: 'Name', type: 'string' },
       { value: 'URL', type: 'string' },
     ],
