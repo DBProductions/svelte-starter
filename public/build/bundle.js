@@ -1,5 +1,5 @@
 
-(function(l, r) { if (!l || l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (self.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(self.document);
+(function(l, r) { if (!l || l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (self.location.host || 'localhost').split(':')[0] + ':35730/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(self.document);
 var app = (function () {
     'use strict';
 
@@ -162,7 +162,7 @@ var app = (function () {
     function append_empty_stylesheet(node) {
         const style_element = element('style');
         append_stylesheet(get_root_for_style(node), style_element);
-        return style_element;
+        return style_element.sheet;
     }
     function append_stylesheet(node, style) {
         append(node.head || node, style);
@@ -181,6 +181,9 @@ var app = (function () {
     }
     function element(name) {
         return document.createElement(name);
+    }
+    function svg_element(name) {
+        return document.createElementNS('http://www.w3.org/2000/svg', name);
     }
     function text(data) {
         return document.createTextNode(data);
@@ -208,18 +211,25 @@ var app = (function () {
         input.value = value == null ? '' : value;
     }
     function set_style(node, key, value, important) {
-        node.style.setProperty(key, value, important ? 'important' : '');
+        if (value === null) {
+            node.style.removeProperty(key);
+        }
+        else {
+            node.style.setProperty(key, value, important ? 'important' : '');
+        }
     }
     function toggle_class(element, name, toggle) {
         element.classList[toggle ? 'add' : 'remove'](name);
     }
-    function custom_event(type, detail, bubbles = false) {
+    function custom_event(type, detail, { bubbles = false, cancelable = false } = {}) {
         const e = document.createEvent('CustomEvent');
-        e.initCustomEvent(type, bubbles, false, detail);
+        e.initCustomEvent(type, bubbles, cancelable, detail);
         return e;
     }
     class HtmlTag {
-        constructor() {
+        constructor(is_svg = false) {
+            this.is_svg = false;
+            this.is_svg = is_svg;
             this.e = this.n = null;
         }
         c(html) {
@@ -227,7 +237,10 @@ var app = (function () {
         }
         m(html, target, anchor = null) {
             if (!this.e) {
-                this.e = element(target.nodeName);
+                if (this.is_svg)
+                    this.e = svg_element(target.nodeName);
+                else
+                    this.e = element(target.nodeName);
                 this.t = target;
                 this.c(html);
             }
@@ -252,7 +265,9 @@ var app = (function () {
         }
     }
 
-    const active_docs = new Set();
+    // we need to store the information for multiple documents because a Svelte application could also contain iframes
+    // https://github.com/sveltejs/svelte/issues/3624
+    const managed_styles = new Map();
     let active = 0;
     // https://github.com/darkskyapp/string-hash/blob/master/index.js
     function hash(str) {
@@ -261,6 +276,11 @@ var app = (function () {
         while (i--)
             hash = ((hash << 5) - hash) ^ str.charCodeAt(i);
         return hash >>> 0;
+    }
+    function create_style_information(doc, node) {
+        const info = { stylesheet: append_empty_stylesheet(node), rules: {} };
+        managed_styles.set(doc, info);
+        return info;
     }
     function create_rule(node, a, b, duration, delay, ease, fn, uid = 0) {
         const step = 16.666 / duration;
@@ -272,11 +292,9 @@ var app = (function () {
         const rule = keyframes + `100% {${fn(b, 1 - b)}}\n}`;
         const name = `__svelte_${hash(rule)}_${uid}`;
         const doc = get_root_for_style(node);
-        active_docs.add(doc);
-        const stylesheet = doc.__svelte_stylesheet || (doc.__svelte_stylesheet = append_empty_stylesheet(node).sheet);
-        const current_rules = doc.__svelte_rules || (doc.__svelte_rules = {});
-        if (!current_rules[name]) {
-            current_rules[name] = true;
+        const { stylesheet, rules } = managed_styles.get(doc) || create_style_information(doc, node);
+        if (!rules[name]) {
+            rules[name] = true;
             stylesheet.insertRule(`@keyframes ${name} ${rule}`, stylesheet.cssRules.length);
         }
         const animation = node.style.animation || '';
@@ -302,14 +320,14 @@ var app = (function () {
         raf(() => {
             if (active)
                 return;
-            active_docs.forEach(doc => {
-                const stylesheet = doc.__svelte_stylesheet;
+            managed_styles.forEach(info => {
+                const { stylesheet } = info;
                 let i = stylesheet.cssRules.length;
                 while (i--)
                     stylesheet.deleteRule(i);
-                doc.__svelte_rules = {};
+                info.rules = {};
             });
-            active_docs.clear();
+            managed_styles.clear();
         });
     }
 
@@ -330,16 +348,18 @@ var app = (function () {
     }
     function createEventDispatcher() {
         const component = get_current_component();
-        return (type, detail) => {
+        return (type, detail, { cancelable = false } = {}) => {
             const callbacks = component.$$.callbacks[type];
             if (callbacks) {
                 // TODO are there situations where events could be dispatched
                 // in a server (non-DOM) environment?
-                const event = custom_event(type, detail);
+                const event = custom_event(type, detail, { cancelable });
                 callbacks.slice().forEach(fn => {
                     fn.call(component, event);
                 });
+                return !event.defaultPrevented;
             }
+            return true;
         };
     }
     // TODO figure out if we still want to support
@@ -368,22 +388,40 @@ var app = (function () {
     function add_render_callback(fn) {
         render_callbacks.push(fn);
     }
-    let flushing = false;
+    // flush() calls callbacks in this order:
+    // 1. All beforeUpdate callbacks, in order: parents before children
+    // 2. All bind:this callbacks, in reverse order: children before parents.
+    // 3. All afterUpdate callbacks, in order: parents before children. EXCEPT
+    //    for afterUpdates called during the initial onMount, which are called in
+    //    reverse order: children before parents.
+    // Since callbacks might update component values, which could trigger another
+    // call to flush(), the following steps guard against this:
+    // 1. During beforeUpdate, any updated components will be added to the
+    //    dirty_components array and will cause a reentrant call to flush(). Because
+    //    the flush index is kept outside the function, the reentrant call will pick
+    //    up where the earlier call left off and go through all dirty components. The
+    //    current_component value is saved and restored so that the reentrant call will
+    //    not interfere with the "parent" flush() call.
+    // 2. bind:this callbacks cannot trigger new flush() calls.
+    // 3. During afterUpdate, any updated components will NOT have their afterUpdate
+    //    callback called a second time; the seen_callbacks set, outside the flush()
+    //    function, guarantees this behavior.
     const seen_callbacks = new Set();
+    let flushidx = 0; // Do *not* move this inside the flush() function
     function flush() {
-        if (flushing)
-            return;
-        flushing = true;
+        const saved_component = current_component;
         do {
             // first, call beforeUpdate functions
             // and update components
-            for (let i = 0; i < dirty_components.length; i += 1) {
-                const component = dirty_components[i];
+            while (flushidx < dirty_components.length) {
+                const component = dirty_components[flushidx];
+                flushidx++;
                 set_current_component(component);
                 update(component.$$);
             }
             set_current_component(null);
             dirty_components.length = 0;
+            flushidx = 0;
             while (binding_callbacks.length)
                 binding_callbacks.pop()();
             // then, once components are updated, call
@@ -403,8 +441,8 @@ var app = (function () {
             flush_callbacks.pop()();
         }
         update_scheduled = false;
-        flushing = false;
         seen_callbacks.clear();
+        set_current_component(saved_component);
     }
     function update($$) {
         if ($$.fragment !== null) {
@@ -740,7 +778,7 @@ var app = (function () {
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.43.1' }, detail), true));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.48.0' }, detail), { bubbles: true }));
     }
     function append_dev(target, node) {
         dispatch_dev('SvelteDOMInsert', { target, node });
@@ -940,7 +978,7 @@ var app = (function () {
       Math.round(($time - start) / 1000)
     );
 
-    /* src/components/Headline.svelte generated by Svelte v3.43.1 */
+    /* src/components/Headline.svelte generated by Svelte v3.48.0 */
 
     const file$d = "src/components/Headline.svelte";
 
@@ -1059,7 +1097,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ListItem.svelte generated by Svelte v3.43.1 */
+    /* src/components/ListItem.svelte generated by Svelte v3.48.0 */
     const file$c = "src/components/ListItem.svelte";
 
     function add_css$b(target) {
@@ -1242,7 +1280,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/List.svelte generated by Svelte v3.43.1 */
+    /* src/components/List.svelte generated by Svelte v3.48.0 */
     const file$b = "src/components/List.svelte";
 
     function add_css$a(target) {
@@ -1495,7 +1533,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Table.svelte generated by Svelte v3.43.1 */
+    /* src/components/Table.svelte generated by Svelte v3.48.0 */
     const file$a = "src/components/Table.svelte";
 
     function add_css$9(target) {
@@ -1915,7 +1953,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Button.svelte generated by Svelte v3.43.1 */
+    /* src/components/Button.svelte generated by Svelte v3.48.0 */
 
     const file$9 = "src/components/Button.svelte";
 
@@ -2106,7 +2144,7 @@ var app = (function () {
         };
     }
 
-    /* src/components/Modal.svelte generated by Svelte v3.43.1 */
+    /* src/components/Modal.svelte generated by Svelte v3.48.0 */
     const file$8 = "src/components/Modal.svelte";
 
     function add_css$7(target) {
@@ -2577,7 +2615,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalDialog.svelte generated by Svelte v3.43.1 */
+    /* src/components/ModalDialog.svelte generated by Svelte v3.48.0 */
     const file$7 = "src/components/ModalDialog.svelte";
 
     // (23:0) <Button id="modalDialog" on:click={open}>
@@ -2944,7 +2982,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalForm.svelte generated by Svelte v3.43.1 */
+    /* src/components/ModalForm.svelte generated by Svelte v3.48.0 */
     const file$6 = "src/components/ModalForm.svelte";
 
     function add_css$6(target) {
@@ -3389,7 +3427,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/UserInput.svelte generated by Svelte v3.43.1 */
+    /* src/components/UserInput.svelte generated by Svelte v3.48.0 */
     const file$5 = "src/components/UserInput.svelte";
 
     function add_css$5(target) {
@@ -3534,7 +3572,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/RadioBoxes.svelte generated by Svelte v3.43.1 */
+    /* src/components/RadioBoxes.svelte generated by Svelte v3.48.0 */
     const file$4 = "src/components/RadioBoxes.svelte";
 
     function add_css$4(target) {
@@ -3674,7 +3712,7 @@ var app = (function () {
     			t1 = text("The user selected ");
     			t2 = text(t2_value);
     			t3 = text(".\n    ");
-    			html_tag = new HtmlTag();
+    			html_tag = new HtmlTag(false);
     			attr_dev(fieldset, "class", "svelte-bz45mt");
     			add_location(fieldset, file$4, 19, 4, 453);
     			attr_dev(div0, "class", "svelte-bz45mt");
@@ -3820,7 +3858,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Contenteditable.svelte generated by Svelte v3.43.1 */
+    /* src/components/Contenteditable.svelte generated by Svelte v3.48.0 */
     const file$3 = "src/components/Contenteditable.svelte";
 
     function add_css$3(target) {
@@ -3945,7 +3983,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Profile.svelte generated by Svelte v3.43.1 */
+    /* src/components/Profile.svelte generated by Svelte v3.48.0 */
     const file$2 = "src/components/Profile.svelte";
 
     function add_css$2(target) {
@@ -4206,7 +4244,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/EventLog.svelte generated by Svelte v3.43.1 */
+    /* src/components/EventLog.svelte generated by Svelte v3.48.0 */
 
     const file$1 = "src/components/EventLog.svelte";
 
@@ -4361,7 +4399,7 @@ var app = (function () {
     	}
     }
 
-    /* src/App.svelte generated by Svelte v3.43.1 */
+    /* src/App.svelte generated by Svelte v3.48.0 */
     const file = "src/App.svelte";
 
     function add_css(target) {
