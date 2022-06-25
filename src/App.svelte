@@ -71,8 +71,13 @@
   </div>
   <div class="footer">
     <div>
-      The user is inactive for {$elapsed}
-      {$elapsed === 1 ? 'second' : 'seconds'}
+      {#if $elapsed}
+        The user is inactive for {$elapsed}
+        {$elapsed === 1 ? 'second' : 'seconds'}
+      {:else}
+        The user is active
+      {/if}
+      
     </div>
   </div>
   <EventLog {showLogs} {logs} />
