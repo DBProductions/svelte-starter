@@ -1,7 +1,7 @@
 # svelte-starter  
 
 Starter repository for the cybernetically enhanced web apps.  
-Works with Svelte v3.43.1 and NodeJS v14.18.0 (with npm@6.14.15).  
+Works with Svelte v3.44.2 and NodeJS v18.13.0 (with npm@8.19.3).  
 [Prettier](https://prettier.io/) for code formatting and [Cypress](https://www.cypress.io/) for end-to-end testing.  
 [Rollup](https://rollupjs.org/) as module bundler and [Volta](https://volta.sh/) as tool manager.  
 

@@ -1,4 +1,3 @@
 .DS_Store
 node_modules/
-public/js/script.js
-public/js/script.js.map
+cypress/videos/*
