@@ -13,9 +13,8 @@ const logEvent = (event) => {
       ? app.logs + '\n' + JSON.stringify(event)
       : JSON.stringify(event),
   })
-  document.querySelector('#eventLog').scrollTop = document.querySelector(
-    '#eventLog'
-  ).scrollHeight
+  document.querySelector('#eventLog').scrollTop =
+    document.querySelector('#eventLog').scrollHeight
 }
 
 app.$on('listSelection', (event) => {

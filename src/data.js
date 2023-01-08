@@ -32,20 +32,17 @@ export const appProps = {
     {
       selector: 'A',
       label: 'A',
-      text:
-        '<p>This is the selection <strong>A</strong>.<br>It shows the information for A.</p>',
+      text: '<p>This is the selection <strong>A</strong>.<br>It shows the information for A.</p>',
     },
     {
       selector: 'B',
       label: 'B',
-      text:
-        '<p>This is the selection <strong>B</strong>.<br>It shows the information for B.</p>',
+      text: '<p>This is the selection <strong>B</strong>.<br>It shows the information for B.</p>',
     },
     {
       selector: 'C',
       label: 'C',
-      text:
-        '<p>This is the selection <strong>C</strong>.<br>It shows the information for C.</p>',
+      text: '<p>This is the selection <strong>C</strong>.<br>It shows the information for C.</p>',
     },
   ],
 }

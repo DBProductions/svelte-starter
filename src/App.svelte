@@ -77,7 +77,6 @@
       {:else}
         The user is active
       {/if}
-      
     </div>
   </div>
   <EventLog {showLogs} {logs} />

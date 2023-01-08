@@ -21,9 +21,6 @@ export default {
       css: true,
       compilerOptions: {
         dev: !production,
-        css: (css) => {
-          css.write('public/build/bundle.css')
-        },
       },
     }),
     resolve({

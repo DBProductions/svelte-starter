@@ -162,16 +162,19 @@ var app = (function () {
     function append_empty_stylesheet(node) {
         const style_element = element('style');
         append_stylesheet(get_root_for_style(node), style_element);
-        return style_element;
+        return style_element.sheet;
     }
     function append_stylesheet(node, style) {
         append(node.head || node, style);
+        return style.sheet;
     }
     function insert(target, node, anchor) {
         target.insertBefore(node, anchor || null);
     }
     function detach(node) {
-        node.parentNode.removeChild(node);
+        if (node.parentNode) {
+            node.parentNode.removeChild(node);
+        }
     }
     function destroy_each(iterations, detaching) {
         for (let i = 0; i < iterations.length; i += 1) {
@@ -181,6 +184,9 @@ var app = (function () {
     }
     function element(name) {
         return document.createElement(name);
+    }
+    function svg_element(name) {
+        return document.createElementNS('http://www.w3.org/2000/svg', name);
     }
     function text(data) {
         return document.createTextNode(data);
@@ -208,18 +214,25 @@ var app = (function () {
         input.value = value == null ? '' : value;
     }
     function set_style(node, key, value, important) {
-        node.style.setProperty(key, value, important ? 'important' : '');
+        if (value === null) {
+            node.style.removeProperty(key);
+        }
+        else {
+            node.style.setProperty(key, value, important ? 'important' : '');
+        }
     }
     function toggle_class(element, name, toggle) {
         element.classList[toggle ? 'add' : 'remove'](name);
     }
-    function custom_event(type, detail, bubbles = false) {
+    function custom_event(type, detail, { bubbles = false, cancelable = false } = {}) {
         const e = document.createEvent('CustomEvent');
-        e.initCustomEvent(type, bubbles, false, detail);
+        e.initCustomEvent(type, bubbles, cancelable, detail);
         return e;
     }
     class HtmlTag {
-        constructor() {
+        constructor(is_svg = false) {
+            this.is_svg = false;
+            this.is_svg = is_svg;
             this.e = this.n = null;
         }
         c(html) {
@@ -227,7 +240,10 @@ var app = (function () {
         }
         m(html, target, anchor = null) {
             if (!this.e) {
-                this.e = element(target.nodeName);
+                if (this.is_svg)
+                    this.e = svg_element(target.nodeName);
+                else
+                    this.e = element(target.nodeName);
                 this.t = target;
                 this.c(html);
             }
@@ -252,7 +268,9 @@ var app = (function () {
         }
     }
 
-    const active_docs = new Set();
+    // we need to store the information for multiple documents because a Svelte application could also contain iframes
+    // https://github.com/sveltejs/svelte/issues/3624
+    const managed_styles = new Map();
     let active = 0;
     // https://github.com/darkskyapp/string-hash/blob/master/index.js
     function hash(str) {
@@ -261,6 +279,11 @@ var app = (function () {
         while (i--)
             hash = ((hash << 5) - hash) ^ str.charCodeAt(i);
         return hash >>> 0;
+    }
+    function create_style_information(doc, node) {
+        const info = { stylesheet: append_empty_stylesheet(node), rules: {} };
+        managed_styles.set(doc, info);
+        return info;
     }
     function create_rule(node, a, b, duration, delay, ease, fn, uid = 0) {
         const step = 16.666 / duration;
@@ -272,11 +295,9 @@ var app = (function () {
         const rule = keyframes + `100% {${fn(b, 1 - b)}}\n}`;
         const name = `__svelte_${hash(rule)}_${uid}`;
         const doc = get_root_for_style(node);
-        active_docs.add(doc);
-        const stylesheet = doc.__svelte_stylesheet || (doc.__svelte_stylesheet = append_empty_stylesheet(node).sheet);
-        const current_rules = doc.__svelte_rules || (doc.__svelte_rules = {});
-        if (!current_rules[name]) {
-            current_rules[name] = true;
+        const { stylesheet, rules } = managed_styles.get(doc) || create_style_information(doc, node);
+        if (!rules[name]) {
+            rules[name] = true;
             stylesheet.insertRule(`@keyframes ${name} ${rule}`, stylesheet.cssRules.length);
         }
         const animation = node.style.animation || '';
@@ -302,14 +323,13 @@ var app = (function () {
         raf(() => {
             if (active)
                 return;
-            active_docs.forEach(doc => {
-                const stylesheet = doc.__svelte_stylesheet;
-                let i = stylesheet.cssRules.length;
-                while (i--)
-                    stylesheet.deleteRule(i);
-                doc.__svelte_rules = {};
+            managed_styles.forEach(info => {
+                const { ownerNode } = info.stylesheet;
+                // there is no ownerNode if it runs on jsdom.
+                if (ownerNode)
+                    detach(ownerNode);
             });
-            active_docs.clear();
+            managed_styles.clear();
         });
     }
 
@@ -322,24 +342,55 @@ var app = (function () {
             throw new Error('Function called outside component initialization');
         return current_component;
     }
+    /**
+     * The `onMount` function schedules a callback to run as soon as the component has been mounted to the DOM.
+     * It must be called during the component's initialisation (but doesn't need to live *inside* the component;
+     * it can be called from an external module).
+     *
+     * `onMount` does not run inside a [server-side component](/docs#run-time-server-side-component-api).
+     *
+     * https://svelte.dev/docs#run-time-svelte-onmount
+     */
     function onMount(fn) {
         get_current_component().$$.on_mount.push(fn);
     }
+    /**
+     * Schedules a callback to run immediately before the component is unmounted.
+     *
+     * Out of `onMount`, `beforeUpdate`, `afterUpdate` and `onDestroy`, this is the
+     * only one that runs inside a server-side component.
+     *
+     * https://svelte.dev/docs#run-time-svelte-ondestroy
+     */
     function onDestroy(fn) {
         get_current_component().$$.on_destroy.push(fn);
     }
+    /**
+     * Creates an event dispatcher that can be used to dispatch [component events](/docs#template-syntax-component-directives-on-eventname).
+     * Event dispatchers are functions that can take two arguments: `name` and `detail`.
+     *
+     * Component events created with `createEventDispatcher` create a
+     * [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent).
+     * These events do not [bubble](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Building_blocks/Events#Event_bubbling_and_capture).
+     * The `detail` argument corresponds to the [CustomEvent.detail](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent/detail)
+     * property and can contain any type of data.
+     *
+     * https://svelte.dev/docs#run-time-svelte-createeventdispatcher
+     */
     function createEventDispatcher() {
         const component = get_current_component();
-        return (type, detail) => {
+        return (type, detail, { cancelable = false } = {}) => {
             const callbacks = component.$$.callbacks[type];
             if (callbacks) {
                 // TODO are there situations where events could be dispatched
                 // in a server (non-DOM) environment?
-                const event = custom_event(type, detail);
+                const event = custom_event(type, detail, { cancelable });
                 callbacks.slice().forEach(fn => {
                     fn.call(component, event);
                 });
+                return !event.defaultPrevented;
             }
+            return true;
         };
     }
     // TODO figure out if we still want to support
@@ -368,22 +419,40 @@ var app = (function () {
     function add_render_callback(fn) {
         render_callbacks.push(fn);
     }
-    let flushing = false;
+    // flush() calls callbacks in this order:
+    // 1. All beforeUpdate callbacks, in order: parents before children
+    // 2. All bind:this callbacks, in reverse order: children before parents.
+    // 3. All afterUpdate callbacks, in order: parents before children. EXCEPT
+    //    for afterUpdates called during the initial onMount, which are called in
+    //    reverse order: children before parents.
+    // Since callbacks might update component values, which could trigger another
+    // call to flush(), the following steps guard against this:
+    // 1. During beforeUpdate, any updated components will be added to the
+    //    dirty_components array and will cause a reentrant call to flush(). Because
+    //    the flush index is kept outside the function, the reentrant call will pick
+    //    up where the earlier call left off and go through all dirty components. The
+    //    current_component value is saved and restored so that the reentrant call will
+    //    not interfere with the "parent" flush() call.
+    // 2. bind:this callbacks cannot trigger new flush() calls.
+    // 3. During afterUpdate, any updated components will NOT have their afterUpdate
+    //    callback called a second time; the seen_callbacks set, outside the flush()
+    //    function, guarantees this behavior.
     const seen_callbacks = new Set();
+    let flushidx = 0; // Do *not* move this inside the flush() function
     function flush() {
-        if (flushing)
-            return;
-        flushing = true;
+        const saved_component = current_component;
         do {
             // first, call beforeUpdate functions
             // and update components
-            for (let i = 0; i < dirty_components.length; i += 1) {
-                const component = dirty_components[i];
+            while (flushidx < dirty_components.length) {
+                const component = dirty_components[flushidx];
+                flushidx++;
                 set_current_component(component);
                 update(component.$$);
             }
             set_current_component(null);
             dirty_components.length = 0;
+            flushidx = 0;
             while (binding_callbacks.length)
                 binding_callbacks.pop()();
             // then, once components are updated, call
@@ -403,8 +472,8 @@ var app = (function () {
             flush_callbacks.pop()();
         }
         update_scheduled = false;
-        flushing = false;
         seen_callbacks.clear();
+        set_current_component(saved_component);
     }
     function update($$) {
         if ($$.fragment !== null) {
@@ -466,10 +535,14 @@ var app = (function () {
             });
             block.o(local);
         }
+        else if (callback) {
+            callback();
+        }
     }
     const null_transition = { duration: 0 };
     function create_bidirectional_transition(node, fn, params, intro) {
-        let config = fn(node, params);
+        const options = { direction: 'both' };
+        let config = fn(node, params, options);
         let t = intro ? 0 : 1;
         let running_program = null;
         let pending_program = null;
@@ -559,7 +632,7 @@ var app = (function () {
                 if (is_function(config)) {
                     wait().then(() => {
                         // @ts-ignore
-                        config = config();
+                        config = config(options);
                         go(b);
                     });
                 }
@@ -614,14 +687,17 @@ var app = (function () {
         block && block.c();
     }
     function mount_component(component, target, anchor, customElement) {
-        const { fragment, on_mount, on_destroy, after_update } = component.$$;
+        const { fragment, after_update } = component.$$;
         fragment && fragment.m(target, anchor);
         if (!customElement) {
             // onMount happens before the initial afterUpdate
             add_render_callback(() => {
-                const new_on_destroy = on_mount.map(run).filter(is_function);
-                if (on_destroy) {
-                    on_destroy.push(...new_on_destroy);
+                const new_on_destroy = component.$$.on_mount.map(run).filter(is_function);
+                // if the component was destroyed immediately
+                // it will update the `$$.on_destroy` reference to `null`.
+                // the destructured on_destroy may still reference to the old array
+                if (component.$$.on_destroy) {
+                    component.$$.on_destroy.push(...new_on_destroy);
                 }
                 else {
                     // Edge case - component was destroyed immediately,
@@ -657,7 +733,7 @@ var app = (function () {
         set_current_component(component);
         const $$ = component.$$ = {
             fragment: null,
-            ctx: null,
+            ctx: [],
             // state
             props,
             update: noop,
@@ -722,6 +798,9 @@ var app = (function () {
             this.$destroy = noop;
         }
         $on(type, callback) {
+            if (!is_function(callback)) {
+                return noop;
+            }
             const callbacks = (this.$$.callbacks[type] || (this.$$.callbacks[type] = []));
             callbacks.push(callback);
             return () => {
@@ -740,7 +819,7 @@ var app = (function () {
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.44.2' }, detail), true));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.55.0' }, detail), { bubbles: true }));
     }
     function append_dev(target, node) {
         dispatch_dev('SvelteDOMInsert', { target, node });
@@ -920,12 +999,12 @@ var app = (function () {
         });
     }
 
-    const time = readable(new Date(), function start(set) {
+    const time = readable(new Date(), (set) => {
       const interval = setInterval(() => {
         set(new Date());
       }, 1000);
 
-      return function stop() {
+      return () => {
         clearInterval(interval);
       }
     });
@@ -940,7 +1019,7 @@ var app = (function () {
       Math.round(($time - start) / 1000)
     );
 
-    /* src/components/Headline.svelte generated by Svelte v3.44.2 */
+    /* src/components/Headline.svelte generated by Svelte v3.55.0 */
 
     const file$d = "src/components/Headline.svelte";
 
@@ -1059,7 +1138,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ListItem.svelte generated by Svelte v3.44.2 */
+    /* src/components/ListItem.svelte generated by Svelte v3.55.0 */
     const file$c = "src/components/ListItem.svelte";
 
     function add_css$b(target) {
@@ -1242,7 +1321,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/List.svelte generated by Svelte v3.44.2 */
+    /* src/components/List.svelte generated by Svelte v3.55.0 */
     const file$b = "src/components/List.svelte";
 
     function add_css$a(target) {
@@ -1495,7 +1574,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Table.svelte generated by Svelte v3.44.2 */
+    /* src/components/Table.svelte generated by Svelte v3.55.0 */
     const file$a = "src/components/Table.svelte";
 
     function add_css$9(target) {
@@ -1915,7 +1994,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Button.svelte generated by Svelte v3.44.2 */
+    /* src/components/Button.svelte generated by Svelte v3.55.0 */
 
     const file$9 = "src/components/Button.svelte";
 
@@ -1977,7 +2056,7 @@ var app = (function () {
     				attr_dev(button, "id", /*id*/ ctx[1]);
     			}
 
-    			if (dirty & /*send*/ 1) {
+    			if (!current || dirty & /*send*/ 1) {
     				toggle_class(button, "sendBtn", /*send*/ ctx[0] === true);
     			}
     		},
@@ -2106,7 +2185,7 @@ var app = (function () {
         };
     }
 
-    /* src/components/Modal.svelte generated by Svelte v3.44.2 */
+    /* src/components/Modal.svelte generated by Svelte v3.55.0 */
     const file$8 = "src/components/Modal.svelte";
 
     function add_css$7(target) {
@@ -2117,7 +2196,7 @@ var app = (function () {
     const get_header_slot_context = ctx => ({});
 
     // (65:2) {#if modalForm}
-    function create_if_block$4(ctx) {
+    function create_if_block$5(ctx) {
     	let button;
     	let current;
 
@@ -2165,7 +2244,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$4.name,
+    		id: create_if_block$5.name,
     		type: "if",
     		source: "(65:2) {#if modalForm}",
     		ctx
@@ -2244,7 +2323,7 @@ var app = (function () {
     	const header_slot = create_slot(header_slot_template, ctx, /*$$scope*/ ctx[8], get_header_slot_context);
     	const default_slot_template = /*#slots*/ ctx[6].default;
     	const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[8], null);
-    	let if_block = /*modalForm*/ ctx[0] && create_if_block$4(ctx);
+    	let if_block = /*modalForm*/ ctx[0] && create_if_block$5(ctx);
 
     	button = new Button({
     			props: {
@@ -2352,7 +2431,7 @@ var app = (function () {
     						transition_in(if_block, 1);
     					}
     				} else {
-    					if_block = create_if_block$4(ctx);
+    					if_block = create_if_block$5(ctx);
     					if_block.c();
     					transition_in(if_block, 1);
     					if_block.m(div1, t3);
@@ -2577,7 +2656,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalDialog.svelte generated by Svelte v3.44.2 */
+    /* src/components/ModalDialog.svelte generated by Svelte v3.55.0 */
     const file$7 = "src/components/ModalDialog.svelte";
 
     // (23:0) <Button id="modalDialog" on:click={open}>
@@ -2611,7 +2690,7 @@ var app = (function () {
     }
 
     // (25:0) {#if showModal}
-    function create_if_block$3(ctx) {
+    function create_if_block$4(ctx) {
     	let modal;
     	let current;
 
@@ -2662,7 +2741,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$3.name,
+    		id: create_if_block$4.name,
     		type: "if",
     		source: "(25:0) {#if showModal}",
     		ctx
@@ -2753,7 +2832,7 @@ var app = (function () {
     		});
 
     	button.$on("click", /*open*/ ctx[4]);
-    	let if_block = /*showModal*/ ctx[0] && create_if_block$3(ctx);
+    	let if_block = /*showModal*/ ctx[0] && create_if_block$4(ctx);
 
     	const block = {
     		c: function create() {
@@ -2789,7 +2868,7 @@ var app = (function () {
     						transition_in(if_block, 1);
     					}
     				} else {
-    					if_block = create_if_block$3(ctx);
+    					if_block = create_if_block$4(ctx);
     					if_block.c();
     					transition_in(if_block, 1);
     					if_block.m(if_block_anchor.parentNode, if_block_anchor);
@@ -2944,7 +3023,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalForm.svelte generated by Svelte v3.44.2 */
+    /* src/components/ModalForm.svelte generated by Svelte v3.55.0 */
     const file$6 = "src/components/ModalForm.svelte";
 
     function add_css$6(target) {
@@ -2952,7 +3031,7 @@ var app = (function () {
     }
 
     // (26:0) {#if showModal}
-    function create_if_block$2(ctx) {
+    function create_if_block$3(ctx) {
     	let modal;
     	let current;
 
@@ -3006,7 +3085,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$2.name,
+    		id: create_if_block$3.name,
     		type: "if",
     		source: "(26:0) {#if showModal}",
     		ctx
@@ -3136,7 +3215,7 @@ var app = (function () {
     function create_fragment$6(ctx) {
     	let if_block_anchor;
     	let current;
-    	let if_block = /*showModal*/ ctx[0] && create_if_block$2(ctx);
+    	let if_block = /*showModal*/ ctx[0] && create_if_block$3(ctx);
 
     	const block = {
     		c: function create() {
@@ -3160,7 +3239,7 @@ var app = (function () {
     						transition_in(if_block, 1);
     					}
     				} else {
-    					if_block = create_if_block$2(ctx);
+    					if_block = create_if_block$3(ctx);
     					if_block.c();
     					transition_in(if_block, 1);
     					if_block.m(if_block_anchor.parentNode, if_block_anchor);
@@ -3389,7 +3468,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/UserInput.svelte generated by Svelte v3.44.2 */
+    /* src/components/UserInput.svelte generated by Svelte v3.55.0 */
     const file$5 = "src/components/UserInput.svelte";
 
     function add_css$5(target) {
@@ -3534,7 +3613,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/RadioBoxes.svelte generated by Svelte v3.44.2 */
+    /* src/components/RadioBoxes.svelte generated by Svelte v3.55.0 */
     const file$4 = "src/components/RadioBoxes.svelte";
 
     function add_css$4(target) {
@@ -3674,7 +3753,7 @@ var app = (function () {
     			t1 = text("The user selected ");
     			t2 = text(t2_value);
     			t3 = text(".\n    ");
-    			html_tag = new HtmlTag();
+    			html_tag = new HtmlTag(false);
     			attr_dev(fieldset, "class", "svelte-bz45mt");
     			add_location(fieldset, file$4, 19, 4, 453);
     			attr_dev(div0, "class", "svelte-bz45mt");
@@ -3820,7 +3899,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Contenteditable.svelte generated by Svelte v3.44.2 */
+    /* src/components/Contenteditable.svelte generated by Svelte v3.55.0 */
     const file$3 = "src/components/Contenteditable.svelte";
 
     function add_css$3(target) {
@@ -3945,7 +4024,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Profile.svelte generated by Svelte v3.44.2 */
+    /* src/components/Profile.svelte generated by Svelte v3.55.0 */
     const file$2 = "src/components/Profile.svelte";
 
     function add_css$2(target) {
@@ -3953,7 +4032,7 @@ var app = (function () {
     }
 
     // (34:0) {#if visible}
-    function create_if_block$1(ctx) {
+    function create_if_block$2(ctx) {
     	let div4;
     	let div0;
     	let img;
@@ -4050,7 +4129,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$1.name,
+    		id: create_if_block$2.name,
     		type: "if",
     		source: "(34:0) {#if visible}",
     		ctx
@@ -4062,7 +4141,7 @@ var app = (function () {
     function create_fragment$2(ctx) {
     	let if_block_anchor;
     	let current;
-    	let if_block = /*visible*/ ctx[5] && create_if_block$1(ctx);
+    	let if_block = /*visible*/ ctx[5] && create_if_block$2(ctx);
 
     	const block = {
     		c: function create() {
@@ -4086,7 +4165,7 @@ var app = (function () {
     						transition_in(if_block, 1);
     					}
     				} else {
-    					if_block = create_if_block$1(ctx);
+    					if_block = create_if_block$2(ctx);
     					if_block.c();
     					transition_in(if_block, 1);
     					if_block.m(if_block_anchor.parentNode, if_block_anchor);
@@ -4206,7 +4285,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/EventLog.svelte generated by Svelte v3.44.2 */
+    /* src/components/EventLog.svelte generated by Svelte v3.55.0 */
 
     const file$1 = "src/components/EventLog.svelte";
 
@@ -4215,7 +4294,7 @@ var app = (function () {
     }
 
     // (8:0) {#if showLogs}
-    function create_if_block(ctx) {
+    function create_if_block$1(ctx) {
     	let textarea;
 
     	const block = {
@@ -4241,7 +4320,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block.name,
+    		id: create_if_block$1.name,
     		type: "if",
     		source: "(8:0) {#if showLogs}",
     		ctx
@@ -4252,7 +4331,7 @@ var app = (function () {
 
     function create_fragment$1(ctx) {
     	let if_block_anchor;
-    	let if_block = /*showLogs*/ ctx[0] && create_if_block(ctx);
+    	let if_block = /*showLogs*/ ctx[0] && create_if_block$1(ctx);
 
     	const block = {
     		c: function create() {
@@ -4271,7 +4350,7 @@ var app = (function () {
     				if (if_block) {
     					if_block.p(ctx, dirty);
     				} else {
-    					if_block = create_if_block(ctx);
+    					if_block = create_if_block$1(ctx);
     					if_block.c();
     					if_block.m(if_block_anchor.parentNode, if_block_anchor);
     				}
@@ -4361,11 +4440,83 @@ var app = (function () {
     	}
     }
 
-    /* src/App.svelte generated by Svelte v3.44.2 */
+    /* src/App.svelte generated by Svelte v3.55.0 */
     const file = "src/App.svelte";
 
     function add_css(target) {
-    	append_styles(target, "svelte-1plrz5d", "#container.svelte-1plrz5d.svelte-1plrz5d{height:90%;width:75%;padding:2% 2% 3% 3%;margin:0 auto;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-1plrz5d.svelte-1plrz5d{display:flex;flex-wrap:wrap;padding:3px}.columns.svelte-1plrz5d>.svelte-1plrz5d{flex-grow:1;flex-shrink:1;flex-basis:300px}.columns.svelte-1plrz5d .left-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.columns.svelte-1plrz5d .right-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.footer.svelte-1plrz5d.svelte-1plrz5d{margin:7px;font-size:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQXBwLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQXBwLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c3ZlbHRlOm9wdGlvbnMgYWNjZXNzb3JzPXt0cnVlfSAvPlxuXG48c2NyaXB0PlxuICBpbXBvcnQgeyBlbGFwc2VkIH0gZnJvbSAnLi9zdG9yZXMuanMnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBpbXBvcnQgSGVhZGxpbmUgZnJvbSAnLi9jb21wb25lbnRzL0hlYWRsaW5lLnN2ZWx0ZSdcbiAgaW1wb3J0IExpc3QgZnJvbSAnLi9jb21wb25lbnRzL0xpc3Quc3ZlbHRlJ1xuICBpbXBvcnQgVGFibGUgZnJvbSAnLi9jb21wb25lbnRzL1RhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsRGlhbG9nIGZyb20gJy4vY29tcG9uZW50cy9Nb2RhbERpYWxvZy5zdmVsdGUnXG4gIGltcG9ydCBNb2RhbEZvcm0gZnJvbSAnLi9jb21wb25lbnRzL01vZGFsRm9ybS5zdmVsdGUnXG4gIGltcG9ydCBVc2VySW5wdXQgZnJvbSAnLi9jb21wb25lbnRzL1VzZXJJbnB1dC5zdmVsdGUnXG4gIGltcG9ydCBSYWRpb0JveGVzIGZyb20gJy4vY29tcG9uZW50cy9SYWRpb0JveGVzLnN2ZWx0ZSdcbiAgaW1wb3J0IENvbnRlbnRlZGl0YWJsZSBmcm9tICcuL2NvbXBvbmVudHMvQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IFByb2ZpbGUgZnJvbSAnLi9jb21wb25lbnRzL1Byb2ZpbGUuc3ZlbHRlJ1xuICBpbXBvcnQgRXZlbnRMb2cgZnJvbSAnLi9jb21wb25lbnRzL0V2ZW50TG9nLnN2ZWx0ZSdcblxuICBleHBvcnQgbGV0IG1lc3NhZ2VcbiAgZXhwb3J0IGxldCBpdGVtSWRcbiAgZXhwb3J0IGxldCBsaXN0XG4gIGV4cG9ydCBsZXQgdGFibGVcbiAgZXhwb3J0IGxldCB1c2VySW5wdXRcbiAgZXhwb3J0IGxldCBzZWxlY3Rpb25zXG4gIGV4cG9ydCBsZXQgY3VycmVudEl0ZW1cbiAgZXhwb3J0IGxldCBtb2RhbERpYWxvZ1xuICBleHBvcnQgbGV0IHNob3dGb3JtTW9kYWxcbiAgZXhwb3J0IGxldCBzZWxlY3RlZCA9ICcnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgc2hvd0xvZ3MgPSB0cnVlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG5cbiAgLy8gZXZlbnQgaGFuZGxpbmdcbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuICBjb25zdCBsaXN0U2VsZWN0aW9uID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnbGlzdFNlbGVjdGlvbicsIGV2ZW50LmRldGFpbC5pdGVtKVxuICBjb25zdCBoYW5kbGVDbGlja2VkUm93ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlQ2xpY2tlZFJvdycsIGV2ZW50LmRldGFpbClcbiAgY29uc3Qgc2VuZEZvcm0gPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdzZW5kRm9ybScsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlRXZlbnQgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVFdmVudCcsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlVXNlckV2ZW50ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlVXNlckV2ZW50JywgZXZlbnQuZGV0YWlsKVxuPC9zY3JpcHQ+XG5cbjxkaXYgaWQ9XCJjb250YWluZXJcIj5cbiAgPGRpdj5cbiAgICA8SGVhZGxpbmUge21lc3NhZ2V9IHtpdGVtSWR9IC8+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiY29sdW1uc1wiPlxuICAgIDxkaXYgY2xhc3M9XCJsZWZ0LWNvbHVtblwiPlxuICAgICAgPExpc3Qge2xpc3R9IHtjdXJyZW50SXRlbX0gb246c2VsZWN0PXtsaXN0U2VsZWN0aW9ufSBvbjplZGl0IC8+XG5cbiAgICAgIDxVc2VySW5wdXQge3VzZXJJbnB1dH0gb246aW5wdXQgLz5cblxuICAgICAgPENvbnRlbnRlZGl0YWJsZSBjb250ZW50PVwiVGhpcyBjb250ZW50IGlzIGVkaXRhYmxlLlwiIG9uOmlucHV0IC8+XG5cbiAgICAgIDxNb2RhbERpYWxvZyB7Li4ubW9kYWxEaWFsb2d9IG9uOmNsb3NlIC8+XG5cbiAgICAgIDxNb2RhbEZvcm1cbiAgICAgICAgc2hvd01vZGFsPXtzaG93Rm9ybU1vZGFsfVxuICAgICAgICB7dmFsdWVOYW1lfVxuICAgICAgICB7dmFsdWVVcmx9XG4gICAgICAgIG9uOnNlbmRGb3JtPXtzZW5kRm9ybX1cbiAgICAgICAgb246Y2xvc2VcbiAgICAgIC8+XG4gICAgPC9kaXY+XG4gICAgPGRpdiBjbGFzcz1cInJpZ2h0LWNvbHVtblwiPlxuICAgICAgPFRhYmxlIHtzZWxlY3RlZH0gZGF0YT17dGFibGV9IG9uOmNsaWNrZWRSb3c9e2hhbmRsZUNsaWNrZWRSb3d9IC8+XG5cbiAgICAgIDxSYWRpb0JveGVzIHtzZWxlY3Rpb25zfSBvbjpzZWxlY3Q9e2hhbmRsZUV2ZW50fSAvPlxuXG4gICAgICA8UHJvZmlsZSAvPlxuICAgIDwvZGl2PlxuICA8L2Rpdj5cbiAgPGRpdiBjbGFzcz1cImZvb3RlclwiPlxuICAgIDxkaXY+XG4gICAgICBUaGUgdXNlciBpcyBpbmFjdGl2ZSBmb3IgeyRlbGFwc2VkfVxuICAgICAgeyRlbGFwc2VkID09PSAxID8gJ3NlY29uZCcgOiAnc2Vjb25kcyd9XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8RXZlbnRMb2cge3Nob3dMb2dzfSB7bG9nc30gLz5cbjwvZGl2PlxuXG48c3ZlbHRlOndpbmRvd1xuICBvbjptb3VzZW1vdmU9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246Y2xpY2s9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246a2V5ZG93bj17aGFuZGxlVXNlckV2ZW50fVxuLz5cblxuPHN0eWxlPlxuICAjY29udGFpbmVyIHtcbiAgICBoZWlnaHQ6IDkwJTtcbiAgICB3aWR0aDogNzUlO1xuICAgIHBhZGRpbmc6IDIlIDIlIDMlIDMlO1xuICAgIG1hcmdpbjogMCBhdXRvO1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICB9XG4gIC5jb2x1bW5zIHtcbiAgICBkaXNwbGF5OiBmbGV4O1xuICAgIGZsZXgtd3JhcDogd3JhcDtcbiAgICBwYWRkaW5nOiAzcHg7XG4gIH1cbiAgLmNvbHVtbnMgPiAqIHtcbiAgICBmbGV4LWdyb3c6IDE7XG4gICAgZmxleC1zaHJpbms6IDE7XG4gICAgZmxleC1iYXNpczogMzAwcHg7XG4gIH1cbiAgLmNvbHVtbnMgLmxlZnQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuY29sdW1ucyAucmlnaHQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuZm9vdGVyIHtcbiAgICBtYXJnaW46IDdweDtcbiAgICBmb250LXNpemU6IDEwcHg7XG4gIH1cbjwvc3R5bGU+XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBdUZFLFVBQVUsOEJBQUMsQ0FBQyxBQUNWLE1BQU0sQ0FBRSxHQUFHLENBQ1gsS0FBSyxDQUFFLEdBQUcsQ0FDVixPQUFPLENBQUUsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUNwQixNQUFNLENBQUUsQ0FBQyxDQUFDLElBQUksQ0FDZCxNQUFNLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQ3RCLGFBQWEsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLEFBQ2hDLENBQUMsQUFDRCxRQUFRLDhCQUFDLENBQUMsQUFDUixPQUFPLENBQUUsSUFBSSxDQUNiLFNBQVMsQ0FBRSxJQUFJLENBQ2YsT0FBTyxDQUFFLEdBQUcsQUFDZCxDQUFDLEFBQ0QsdUJBQVEsQ0FBRyxlQUFFLENBQUMsQUFDWixTQUFTLENBQUUsQ0FBQyxDQUNaLFdBQVcsQ0FBRSxDQUFDLENBQ2QsVUFBVSxDQUFFLEtBQUssQUFDbkIsQ0FBQyxBQUNELHVCQUFRLENBQUMsWUFBWSxlQUFDLENBQUMsQUFDckIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELHVCQUFRLENBQUMsYUFBYSxlQUFDLENBQUMsQUFDdEIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELE9BQU8sOEJBQUMsQ0FBQyxBQUNQLE1BQU0sQ0FBRSxHQUFHLENBQ1gsU0FBUyxDQUFFLElBQUksQUFDakIsQ0FBQyJ9 */");
+    	append_styles(target, "svelte-1plrz5d", "#container.svelte-1plrz5d.svelte-1plrz5d{height:90%;width:75%;padding:2% 2% 3% 3%;margin:0 auto;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-1plrz5d.svelte-1plrz5d{display:flex;flex-wrap:wrap;padding:3px}.columns.svelte-1plrz5d>.svelte-1plrz5d{flex-grow:1;flex-shrink:1;flex-basis:300px}.columns.svelte-1plrz5d .left-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.columns.svelte-1plrz5d .right-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.footer.svelte-1plrz5d.svelte-1plrz5d{margin:7px;font-size:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQXBwLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQXBwLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c3ZlbHRlOm9wdGlvbnMgYWNjZXNzb3JzPXt0cnVlfSAvPlxuXG48c2NyaXB0PlxuICBpbXBvcnQgeyBlbGFwc2VkIH0gZnJvbSAnLi9zdG9yZXMuanMnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBpbXBvcnQgSGVhZGxpbmUgZnJvbSAnLi9jb21wb25lbnRzL0hlYWRsaW5lLnN2ZWx0ZSdcbiAgaW1wb3J0IExpc3QgZnJvbSAnLi9jb21wb25lbnRzL0xpc3Quc3ZlbHRlJ1xuICBpbXBvcnQgVGFibGUgZnJvbSAnLi9jb21wb25lbnRzL1RhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsRGlhbG9nIGZyb20gJy4vY29tcG9uZW50cy9Nb2RhbERpYWxvZy5zdmVsdGUnXG4gIGltcG9ydCBNb2RhbEZvcm0gZnJvbSAnLi9jb21wb25lbnRzL01vZGFsRm9ybS5zdmVsdGUnXG4gIGltcG9ydCBVc2VySW5wdXQgZnJvbSAnLi9jb21wb25lbnRzL1VzZXJJbnB1dC5zdmVsdGUnXG4gIGltcG9ydCBSYWRpb0JveGVzIGZyb20gJy4vY29tcG9uZW50cy9SYWRpb0JveGVzLnN2ZWx0ZSdcbiAgaW1wb3J0IENvbnRlbnRlZGl0YWJsZSBmcm9tICcuL2NvbXBvbmVudHMvQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IFByb2ZpbGUgZnJvbSAnLi9jb21wb25lbnRzL1Byb2ZpbGUuc3ZlbHRlJ1xuICBpbXBvcnQgRXZlbnRMb2cgZnJvbSAnLi9jb21wb25lbnRzL0V2ZW50TG9nLnN2ZWx0ZSdcblxuICBleHBvcnQgbGV0IG1lc3NhZ2VcbiAgZXhwb3J0IGxldCBpdGVtSWRcbiAgZXhwb3J0IGxldCBsaXN0XG4gIGV4cG9ydCBsZXQgdGFibGVcbiAgZXhwb3J0IGxldCB1c2VySW5wdXRcbiAgZXhwb3J0IGxldCBzZWxlY3Rpb25zXG4gIGV4cG9ydCBsZXQgY3VycmVudEl0ZW1cbiAgZXhwb3J0IGxldCBtb2RhbERpYWxvZ1xuICBleHBvcnQgbGV0IHNob3dGb3JtTW9kYWxcbiAgZXhwb3J0IGxldCBzZWxlY3RlZCA9ICcnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgc2hvd0xvZ3MgPSB0cnVlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG5cbiAgLy8gZXZlbnQgaGFuZGxpbmdcbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuICBjb25zdCBsaXN0U2VsZWN0aW9uID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnbGlzdFNlbGVjdGlvbicsIGV2ZW50LmRldGFpbC5pdGVtKVxuICBjb25zdCBoYW5kbGVDbGlja2VkUm93ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlQ2xpY2tlZFJvdycsIGV2ZW50LmRldGFpbClcbiAgY29uc3Qgc2VuZEZvcm0gPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdzZW5kRm9ybScsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlRXZlbnQgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVFdmVudCcsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlVXNlckV2ZW50ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlVXNlckV2ZW50JywgZXZlbnQuZGV0YWlsKVxuPC9zY3JpcHQ+XG5cbjxkaXYgaWQ9XCJjb250YWluZXJcIj5cbiAgPGRpdj5cbiAgICA8SGVhZGxpbmUge21lc3NhZ2V9IHtpdGVtSWR9IC8+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiY29sdW1uc1wiPlxuICAgIDxkaXYgY2xhc3M9XCJsZWZ0LWNvbHVtblwiPlxuICAgICAgPExpc3Qge2xpc3R9IHtjdXJyZW50SXRlbX0gb246c2VsZWN0PXtsaXN0U2VsZWN0aW9ufSBvbjplZGl0IC8+XG5cbiAgICAgIDxVc2VySW5wdXQge3VzZXJJbnB1dH0gb246aW5wdXQgLz5cblxuICAgICAgPENvbnRlbnRlZGl0YWJsZSBjb250ZW50PVwiVGhpcyBjb250ZW50IGlzIGVkaXRhYmxlLlwiIG9uOmlucHV0IC8+XG5cbiAgICAgIDxNb2RhbERpYWxvZyB7Li4ubW9kYWxEaWFsb2d9IG9uOmNsb3NlIC8+XG5cbiAgICAgIDxNb2RhbEZvcm1cbiAgICAgICAgc2hvd01vZGFsPXtzaG93Rm9ybU1vZGFsfVxuICAgICAgICB7dmFsdWVOYW1lfVxuICAgICAgICB7dmFsdWVVcmx9XG4gICAgICAgIG9uOnNlbmRGb3JtPXtzZW5kRm9ybX1cbiAgICAgICAgb246Y2xvc2VcbiAgICAgIC8+XG4gICAgPC9kaXY+XG4gICAgPGRpdiBjbGFzcz1cInJpZ2h0LWNvbHVtblwiPlxuICAgICAgPFRhYmxlIHtzZWxlY3RlZH0gZGF0YT17dGFibGV9IG9uOmNsaWNrZWRSb3c9e2hhbmRsZUNsaWNrZWRSb3d9IC8+XG5cbiAgICAgIDxSYWRpb0JveGVzIHtzZWxlY3Rpb25zfSBvbjpzZWxlY3Q9e2hhbmRsZUV2ZW50fSAvPlxuXG4gICAgICA8UHJvZmlsZSAvPlxuICAgIDwvZGl2PlxuICA8L2Rpdj5cbiAgPGRpdiBjbGFzcz1cImZvb3RlclwiPlxuICAgIDxkaXY+XG4gICAgICB7I2lmICRlbGFwc2VkfVxuICAgICAgICBUaGUgdXNlciBpcyBpbmFjdGl2ZSBmb3IgeyRlbGFwc2VkfVxuICAgICAgICB7JGVsYXBzZWQgPT09IDEgPyAnc2Vjb25kJyA6ICdzZWNvbmRzJ31cbiAgICAgIHs6ZWxzZX1cbiAgICAgICAgVGhlIHVzZXIgaXMgYWN0aXZlXG4gICAgICB7L2lmfVxuICAgIDwvZGl2PlxuICA8L2Rpdj5cbiAgPEV2ZW50TG9nIHtzaG93TG9nc30ge2xvZ3N9IC8+XG48L2Rpdj5cblxuPHN2ZWx0ZTp3aW5kb3dcbiAgb246bW91c2Vtb3ZlPXtoYW5kbGVVc2VyRXZlbnR9XG4gIG9uOmNsaWNrPXtoYW5kbGVVc2VyRXZlbnR9XG4gIG9uOmtleWRvd249e2hhbmRsZVVzZXJFdmVudH1cbi8+XG5cbjxzdHlsZT5cbiAgI2NvbnRhaW5lciB7XG4gICAgaGVpZ2h0OiA5MCU7XG4gICAgd2lkdGg6IDc1JTtcbiAgICBwYWRkaW5nOiAyJSAyJSAzJSAzJTtcbiAgICBtYXJnaW46IDAgYXV0bztcbiAgICBib3JkZXI6IDFweCBzb2xpZCAjZWVlO1xuICAgIGJvcmRlci1yYWRpdXM6IDVweCA1cHggNXB4IDVweDtcbiAgfVxuICAuY29sdW1ucyB7XG4gICAgZGlzcGxheTogZmxleDtcbiAgICBmbGV4LXdyYXA6IHdyYXA7XG4gICAgcGFkZGluZzogM3B4O1xuICB9XG4gIC5jb2x1bW5zID4gKiB7XG4gICAgZmxleC1ncm93OiAxO1xuICAgIGZsZXgtc2hyaW5rOiAxO1xuICAgIGZsZXgtYmFzaXM6IDMwMHB4O1xuICB9XG4gIC5jb2x1bW5zIC5sZWZ0LWNvbHVtbiB7XG4gICAgcGFkZGluZzogMSUgMSUgMiUgMiU7XG4gIH1cbiAgLmNvbHVtbnMgLnJpZ2h0LWNvbHVtbiB7XG4gICAgcGFkZGluZzogMSUgMSUgMiUgMiU7XG4gIH1cbiAgLmZvb3RlciB7XG4gICAgbWFyZ2luOiA3cHg7XG4gICAgZm9udC1zaXplOiAxMHB4O1xuICB9XG48L3N0eWxlPlxuIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQTJGRSxVQUFVLDhCQUFDLENBQUMsQUFDVixNQUFNLENBQUUsR0FBRyxDQUNYLEtBQUssQ0FBRSxHQUFHLENBQ1YsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FDcEIsTUFBTSxDQUFFLENBQUMsQ0FBQyxJQUFJLENBQ2QsTUFBTSxDQUFFLEdBQUcsQ0FBQyxLQUFLLENBQUMsSUFBSSxDQUN0QixhQUFhLENBQUUsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLENBQUMsR0FBRyxBQUNoQyxDQUFDLEFBQ0QsUUFBUSw4QkFBQyxDQUFDLEFBQ1IsT0FBTyxDQUFFLElBQUksQ0FDYixTQUFTLENBQUUsSUFBSSxDQUNmLE9BQU8sQ0FBRSxHQUFHLEFBQ2QsQ0FBQyxBQUNELHVCQUFRLENBQUcsZUFBRSxDQUFDLEFBQ1osU0FBUyxDQUFFLENBQUMsQ0FDWixXQUFXLENBQUUsQ0FBQyxDQUNkLFVBQVUsQ0FBRSxLQUFLLEFBQ25CLENBQUMsQUFDRCx1QkFBUSxDQUFDLFlBQVksZUFBQyxDQUFDLEFBQ3JCLE9BQU8sQ0FBRSxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLEFBQ3RCLENBQUMsQUFDRCx1QkFBUSxDQUFDLGFBQWEsZUFBQyxDQUFDLEFBQ3RCLE9BQU8sQ0FBRSxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLEFBQ3RCLENBQUMsQUFDRCxPQUFPLDhCQUFDLENBQUMsQUFDUCxNQUFNLENBQUUsR0FBRyxDQUNYLFNBQVMsQ0FBRSxJQUFJLEFBQ2pCLENBQUMifQ== */");
+    }
+
+    // (77:6) {:else}
+    function create_else_block(ctx) {
+    	let t;
+
+    	const block = {
+    		c: function create() {
+    			t = text("The user is active");
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, t, anchor);
+    		},
+    		p: noop,
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(t);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_else_block.name,
+    		type: "else",
+    		source: "(77:6) {:else}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (74:6) {#if $elapsed}
+    function create_if_block(ctx) {
+    	let t0;
+    	let t1;
+    	let t2;
+    	let t3_value = (/*$elapsed*/ ctx[14] === 1 ? 'second' : 'seconds') + "";
+    	let t3;
+
+    	const block = {
+    		c: function create() {
+    			t0 = text("The user is inactive for ");
+    			t1 = text(/*$elapsed*/ ctx[14]);
+    			t2 = space();
+    			t3 = text(t3_value);
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, t0, anchor);
+    			insert_dev(target, t1, anchor);
+    			insert_dev(target, t2, anchor);
+    			insert_dev(target, t3, anchor);
+    		},
+    		p: function update(ctx, dirty) {
+    			if (dirty & /*$elapsed*/ 16384) set_data_dev(t1, /*$elapsed*/ ctx[14]);
+    			if (dirty & /*$elapsed*/ 16384 && t3_value !== (t3_value = (/*$elapsed*/ ctx[14] === 1 ? 'second' : 'seconds') + "")) set_data_dev(t3, t3_value);
+    		},
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(t0);
+    			if (detaching) detach_dev(t1);
+    			if (detaching) detach_dev(t2);
+    			if (detaching) detach_dev(t3);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_if_block.name,
+    		type: "if",
+    		source: "(74:6) {#if $elapsed}",
+    		ctx
+    	});
+
+    	return block;
     }
 
     function create_fragment(ctx) {
@@ -4395,11 +4546,6 @@ var app = (function () {
     	let div5;
     	let div4;
     	let t9;
-    	let t10;
-    	let t11;
-    	let t12_value = (/*$elapsed*/ ctx[14] === 1 ? 'second' : 'seconds') + "";
-    	let t12;
-    	let t13;
     	let eventlog;
     	let current;
     	let mounted;
@@ -4477,6 +4623,14 @@ var app = (function () {
     	radioboxes.$on("select", /*handleEvent*/ ctx[18]);
     	profile = new Profile({ $$inline: true });
 
+    	function select_block_type(ctx, dirty) {
+    		if (/*$elapsed*/ ctx[14]) return create_if_block;
+    		return create_else_block;
+    	}
+
+    	let current_block_type = select_block_type(ctx);
+    	let if_block = current_block_type(ctx);
+
     	eventlog = new EventLog({
     			props: {
     				showLogs: /*showLogs*/ ctx[12],
@@ -4512,11 +4666,8 @@ var app = (function () {
     			t8 = space();
     			div5 = element("div");
     			div4 = element("div");
-    			t9 = text("The user is inactive for ");
-    			t10 = text(/*$elapsed*/ ctx[14]);
-    			t11 = space();
-    			t12 = text(t12_value);
-    			t13 = space();
+    			if_block.c();
+    			t9 = space();
     			create_component(eventlog.$$.fragment);
     			add_location(div0, file, 42, 2, 1499);
     			attr_dev(div1, "class", "left-column svelte-1plrz5d");
@@ -4561,11 +4712,8 @@ var app = (function () {
     			append_dev(div6, t8);
     			append_dev(div6, div5);
     			append_dev(div5, div4);
-    			append_dev(div4, t9);
-    			append_dev(div4, t10);
-    			append_dev(div4, t11);
-    			append_dev(div4, t12);
-    			append_dev(div6, t13);
+    			if_block.m(div4, null);
+    			append_dev(div6, t9);
     			mount_component(eventlog, div6, null);
     			current = true;
 
@@ -4609,8 +4757,19 @@ var app = (function () {
     			const radioboxes_changes = {};
     			if (dirty & /*selections*/ 32) radioboxes_changes.selections = /*selections*/ ctx[5];
     			radioboxes.$set(radioboxes_changes);
-    			if (!current || dirty & /*$elapsed*/ 16384) set_data_dev(t10, /*$elapsed*/ ctx[14]);
-    			if ((!current || dirty & /*$elapsed*/ 16384) && t12_value !== (t12_value = (/*$elapsed*/ ctx[14] === 1 ? 'second' : 'seconds') + "")) set_data_dev(t12, t12_value);
+
+    			if (current_block_type === (current_block_type = select_block_type(ctx)) && if_block) {
+    				if_block.p(ctx, dirty);
+    			} else {
+    				if_block.d(1);
+    				if_block = current_block_type(ctx);
+
+    				if (if_block) {
+    					if_block.c();
+    					if_block.m(div4, null);
+    				}
+    			}
+
     			const eventlog_changes = {};
     			if (dirty & /*showLogs*/ 4096) eventlog_changes.showLogs = /*showLogs*/ ctx[12];
     			if (dirty & /*logs*/ 8192) eventlog_changes.logs = /*logs*/ ctx[13];
@@ -4654,6 +4813,7 @@ var app = (function () {
     			destroy_component(table_1);
     			destroy_component(radioboxes);
     			destroy_component(profile);
+    			if_block.d();
     			destroy_component(eventlog);
     			mounted = false;
     			run_all(dispose);
@@ -4700,6 +4860,44 @@ var app = (function () {
     	const sendForm = event => dispatch('sendForm', event.detail);
     	const handleEvent = event => dispatch('handleEvent', event.detail);
     	const handleUserEvent = event => dispatch('handleUserEvent', event.detail);
+
+    	$$self.$$.on_mount.push(function () {
+    		if (message === undefined && !('message' in $$props || $$self.$$.bound[$$self.$$.props['message']])) {
+    			console.warn("<App> was created without expected prop 'message'");
+    		}
+
+    		if (itemId === undefined && !('itemId' in $$props || $$self.$$.bound[$$self.$$.props['itemId']])) {
+    			console.warn("<App> was created without expected prop 'itemId'");
+    		}
+
+    		if (list === undefined && !('list' in $$props || $$self.$$.bound[$$self.$$.props['list']])) {
+    			console.warn("<App> was created without expected prop 'list'");
+    		}
+
+    		if (table === undefined && !('table' in $$props || $$self.$$.bound[$$self.$$.props['table']])) {
+    			console.warn("<App> was created without expected prop 'table'");
+    		}
+
+    		if (userInput === undefined && !('userInput' in $$props || $$self.$$.bound[$$self.$$.props['userInput']])) {
+    			console.warn("<App> was created without expected prop 'userInput'");
+    		}
+
+    		if (selections === undefined && !('selections' in $$props || $$self.$$.bound[$$self.$$.props['selections']])) {
+    			console.warn("<App> was created without expected prop 'selections'");
+    		}
+
+    		if (currentItem === undefined && !('currentItem' in $$props || $$self.$$.bound[$$self.$$.props['currentItem']])) {
+    			console.warn("<App> was created without expected prop 'currentItem'");
+    		}
+
+    		if (modalDialog === undefined && !('modalDialog' in $$props || $$self.$$.bound[$$self.$$.props['modalDialog']])) {
+    			console.warn("<App> was created without expected prop 'modalDialog'");
+    		}
+
+    		if (showFormModal === undefined && !('showFormModal' in $$props || $$self.$$.bound[$$self.$$.props['showFormModal']])) {
+    			console.warn("<App> was created without expected prop 'showFormModal'");
+    		}
+    	});
 
     	const writable_props = [
     		'message',
@@ -4880,45 +5078,6 @@ var app = (function () {
     			options,
     			id: create_fragment.name
     		});
-
-    		const { ctx } = this.$$;
-    		const props = options.props || {};
-
-    		if (/*message*/ ctx[0] === undefined && !('message' in props)) {
-    			console.warn("<App> was created without expected prop 'message'");
-    		}
-
-    		if (/*itemId*/ ctx[1] === undefined && !('itemId' in props)) {
-    			console.warn("<App> was created without expected prop 'itemId'");
-    		}
-
-    		if (/*list*/ ctx[2] === undefined && !('list' in props)) {
-    			console.warn("<App> was created without expected prop 'list'");
-    		}
-
-    		if (/*table*/ ctx[3] === undefined && !('table' in props)) {
-    			console.warn("<App> was created without expected prop 'table'");
-    		}
-
-    		if (/*userInput*/ ctx[4] === undefined && !('userInput' in props)) {
-    			console.warn("<App> was created without expected prop 'userInput'");
-    		}
-
-    		if (/*selections*/ ctx[5] === undefined && !('selections' in props)) {
-    			console.warn("<App> was created without expected prop 'selections'");
-    		}
-
-    		if (/*currentItem*/ ctx[6] === undefined && !('currentItem' in props)) {
-    			console.warn("<App> was created without expected prop 'currentItem'");
-    		}
-
-    		if (/*modalDialog*/ ctx[7] === undefined && !('modalDialog' in props)) {
-    			console.warn("<App> was created without expected prop 'modalDialog'");
-    		}
-
-    		if (/*showFormModal*/ ctx[8] === undefined && !('showFormModal' in props)) {
-    			console.warn("<App> was created without expected prop 'showFormModal'");
-    		}
     	}
 
     	get message() {
@@ -5082,20 +5241,17 @@ var app = (function () {
         {
           selector: 'A',
           label: 'A',
-          text:
-            '<p>This is the selection <strong>A</strong>.<br>It shows the information for A.</p>',
+          text: '<p>This is the selection <strong>A</strong>.<br>It shows the information for A.</p>',
         },
         {
           selector: 'B',
           label: 'B',
-          text:
-            '<p>This is the selection <strong>B</strong>.<br>It shows the information for B.</p>',
+          text: '<p>This is the selection <strong>B</strong>.<br>It shows the information for B.</p>',
         },
         {
           selector: 'C',
           label: 'C',
-          text:
-            '<p>This is the selection <strong>C</strong>.<br>It shows the information for C.</p>',
+          text: '<p>This is the selection <strong>C</strong>.<br>It shows the information for C.</p>',
         },
       ],
     };
@@ -5111,9 +5267,8 @@ var app = (function () {
           ? app.logs + '\n' + JSON.stringify(event)
           : JSON.stringify(event),
       });
-      document.querySelector('#eventLog').scrollTop = document.querySelector(
-        '#eventLog'
-      ).scrollHeight;
+      document.querySelector('#eventLog').scrollTop =
+        document.querySelector('#eventLog').scrollHeight;
     };
 
     app.$on('listSelection', (event) => {
