@@ -53,7 +53,6 @@ Navigate to [localhost:10001](http://localhost:10001).
 ## Cypress
 
     $ npm run start:cypress
-    $ npm run run:cypress
 
 ## Feedback
 Star this repo if you found it useful. Use the github issue tracker to give feedback on this repo.
