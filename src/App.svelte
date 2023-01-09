@@ -14,6 +14,7 @@
   import Contenteditable from './components/Contenteditable.svelte'
   import Profile from './components/Profile.svelte'
   import EventLog from './components/EventLog.svelte'
+  import Animation from './components/Animation.svelte'
 
   export let message
   export let itemId
@@ -50,6 +51,8 @@
       <UserInput {userInput} on:input />
 
       <Contenteditable content="This content is editable." on:input />
+
+      <Animation />
 
       <ModalDialog {...modalDialog} on:close />
 
