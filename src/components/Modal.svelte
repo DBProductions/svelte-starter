@@ -43,7 +43,7 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="modal-background" on:click={close} />
+<div class="modal-background" on:keydown={close} on:click={close} />
 
 <div
   id={modalId}
