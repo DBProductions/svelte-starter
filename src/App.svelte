@@ -52,9 +52,9 @@
 
       <Contenteditable content="This content is editable." on:input />
 
-      <Animation />
-
       <ModalDialog {...modalDialog} on:close />
+
+      <Animation />
 
       <ModalForm
         showModal={showFormModal}

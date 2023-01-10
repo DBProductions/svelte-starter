@@ -2153,6 +2153,9 @@ var app = (function () {
     	}
     }
 
+    function cubicInOut(t) {
+        return t < 0.5 ? 4.0 * t * t * t : 0.5 * Math.pow(2.0 * t - 2.0, 3.0) + 1.0;
+    }
     function cubicOut(t) {
         const f = t - 1.0;
         return f * f * f + 1.0;
@@ -2161,6 +2164,18 @@ var app = (function () {
         return --t * t * t * t * t + 1;
     }
 
+    function blur(node, { delay = 0, duration = 400, easing = cubicInOut, amount = 5, opacity = 0 } = {}) {
+        const style = getComputedStyle(node);
+        const target_opacity = +style.opacity;
+        const f = style.filter === 'none' ? '' : style.filter;
+        const od = target_opacity * (1 - opacity);
+        return {
+            delay,
+            duration,
+            easing,
+            css: (_t, u) => `opacity: ${target_opacity - (od * u)}; filter: ${f} blur(${u * amount}px);`
+        };
+    }
     function fade(node, { delay = 0, duration = 400, easing = identity } = {}) {
         const o = +getComputedStyle(node).opacity;
         return {
@@ -2182,6 +2197,31 @@ var app = (function () {
             css: (t, u) => `
 			transform: ${transform} translate(${(1 - t) * x}px, ${(1 - t) * y}px);
 			opacity: ${target_opacity - (od * u)}`
+        };
+    }
+    function slide(node, { delay = 0, duration = 400, easing = cubicOut } = {}) {
+        const style = getComputedStyle(node);
+        const opacity = +style.opacity;
+        const height = parseFloat(style.height);
+        const padding_top = parseFloat(style.paddingTop);
+        const padding_bottom = parseFloat(style.paddingBottom);
+        const margin_top = parseFloat(style.marginTop);
+        const margin_bottom = parseFloat(style.marginBottom);
+        const border_top_width = parseFloat(style.borderTopWidth);
+        const border_bottom_width = parseFloat(style.borderBottomWidth);
+        return {
+            delay,
+            duration,
+            easing,
+            css: t => 'overflow: hidden;' +
+                `opacity: ${Math.min(t * 20, 1) * opacity};` +
+                `height: ${t * height}px;` +
+                `padding-top: ${t * padding_top}px;` +
+                `padding-bottom: ${t * padding_bottom}px;` +
+                `margin-top: ${t * margin_top}px;` +
+                `margin-bottom: ${t * margin_bottom}px;` +
+                `border-top-width: ${t * border_top_width}px;` +
+                `border-bottom-width: ${t * border_bottom_width}px;`
         };
     }
     function scale(node, { delay = 0, duration = 400, easing = cubicOut, start = 0, opacity = 0 } = {}) {
@@ -4460,64 +4500,119 @@ var app = (function () {
     const file$1 = "src/components/Animation.svelte";
 
     function add_css$1(target) {
-    	append_styles(target, "svelte-1k43mf1", ".animation-container.svelte-1k43mf1 span.svelte-1k43mf1{margin-left:5px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQW5pbWF0aW9uLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQW5pbWF0aW9uLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBmYWRlLCBzY2FsZSB9IGZyb20gJ3N2ZWx0ZS90cmFuc2l0aW9uJ1xuICBcbiAgbGV0IGFuaW1hdGUgPSBmYWxzZVxuPC9zY3JpcHQ+XG4gIFxuPGRpdiBjbGFzcz1cImFuaW1hdGlvbi1jb250YWluZXJcIj5cbiAgPGlucHV0IHR5cGU9XCJjaGVja2JveFwiIGJpbmQ6Y2hlY2tlZD17YW5pbWF0ZX0gLz4gU2hvdyAgXG4gIHsjaWYgYW5pbWF0ZX1cbiAgICA8c3BhbiB0cmFuc2l0aW9uOmZhZGU+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOmZhZGUuPC9zcGFuPlxuICAgIDxzcGFuIHRyYW5zaXRpb246c2NhbGU+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOnNjYWxlLjwvc3Bhbj5cbiAgey9pZn1cbjwvZGl2PlxuICBcbjxzdHlsZT5cbi5hbmltYXRpb24tY29udGFpbmVyIHNwYW4ge1xuICBtYXJnaW4tbGVmdDogNXB4O1xufVxuPC9zdHlsZT4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBZUEsbUNBQW9CLENBQUMsSUFBSSxlQUFDLENBQUMsQUFDekIsV0FBVyxDQUFFLEdBQUcsQUFDbEIsQ0FBQyJ9 */");
+    	append_styles(target, "svelte-omsxf7", ".animation-container.svelte-omsxf7{margin:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQW5pbWF0aW9uLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQW5pbWF0aW9uLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBmYWRlLCBibHVyLCBmbHksIHNsaWRlLCBzY2FsZSB9IGZyb20gJ3N2ZWx0ZS90cmFuc2l0aW9uJ1xuICBcbiAgbGV0IGFuaW1hdGUgPSBmYWxzZVxuPC9zY3JpcHQ+XG4gIFxuPGRpdiBjbGFzcz1cImFuaW1hdGlvbi1jb250YWluZXJcIj5cbiAgPGlucHV0IHR5cGU9XCJjaGVja2JveFwiIGJpbmQ6Y2hlY2tlZD17YW5pbWF0ZX0gLz4gU2hvdyBUcmFuc2l0aW9ucyBcbiAgeyNpZiBhbmltYXRlfVxuICAgIDxkaXYgdHJhbnNpdGlvbjpmYWRlPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpmYWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpibHVyPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpibHVyLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpmbHk+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOmZseS48L2Rpdj5cbiAgICA8ZGl2IHRyYW5zaXRpb246c2xpZGU+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOnNsaWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpzY2FsZT5UaGlzIHRleHQgdXNlIHRyYW5zaXRpb246c2NhbGUuPC9kaXY+XG4gIHsvaWZ9XG48L2Rpdj5cbiAgXG48c3R5bGU+XG4uYW5pbWF0aW9uLWNvbnRhaW5lciB7XG4gIG1hcmdpbjogMTBweDtcbn1cbjwvc3R5bGU+Il0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWtCQSxvQkFBb0IsY0FBQyxDQUFDLEFBQ3BCLE1BQU0sQ0FBRSxJQUFJLEFBQ2QsQ0FBQyJ9 */");
     }
 
     // (9:2) {#if animate}
     function create_if_block$1(ctx) {
-    	let span0;
-    	let span0_transition;
+    	let div0;
+    	let div0_transition;
     	let t1;
-    	let span1;
-    	let span1_transition;
+    	let div1;
+    	let div1_transition;
+    	let t3;
+    	let div2;
+    	let div2_transition;
+    	let t5;
+    	let div3;
+    	let div3_transition;
+    	let t7;
+    	let div4;
+    	let div4_transition;
     	let current;
 
     	const block = {
     		c: function create() {
-    			span0 = element("span");
-    			span0.textContent = "This text use transition:fade.";
+    			div0 = element("div");
+    			div0.textContent = "This text use transition:fade.";
     			t1 = space();
-    			span1 = element("span");
-    			span1.textContent = "This text use transition:scale.";
-    			attr_dev(span0, "class", "svelte-1k43mf1");
-    			add_location(span0, file$1, 9, 4, 209);
-    			attr_dev(span1, "class", "svelte-1k43mf1");
-    			add_location(span1, file$1, 10, 4, 273);
+    			div1 = element("div");
+    			div1.textContent = "This text use transition:blur.";
+    			t3 = space();
+    			div2 = element("div");
+    			div2.textContent = "This text use transition:fly.";
+    			t5 = space();
+    			div3 = element("div");
+    			div3.textContent = "This text use transition:slide.";
+    			t7 = space();
+    			div4 = element("div");
+    			div4.textContent = "This text use transition:scale.";
+    			add_location(div0, file$1, 9, 4, 238);
+    			add_location(div1, file$1, 10, 4, 300);
+    			add_location(div2, file$1, 11, 4, 362);
+    			add_location(div3, file$1, 12, 4, 422);
+    			add_location(div4, file$1, 13, 4, 486);
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, span0, anchor);
+    			insert_dev(target, div0, anchor);
     			insert_dev(target, t1, anchor);
-    			insert_dev(target, span1, anchor);
+    			insert_dev(target, div1, anchor);
+    			insert_dev(target, t3, anchor);
+    			insert_dev(target, div2, anchor);
+    			insert_dev(target, t5, anchor);
+    			insert_dev(target, div3, anchor);
+    			insert_dev(target, t7, anchor);
+    			insert_dev(target, div4, anchor);
     			current = true;
     		},
     		i: function intro(local) {
     			if (current) return;
 
     			add_render_callback(() => {
-    				if (!span0_transition) span0_transition = create_bidirectional_transition(span0, fade, {}, true);
-    				span0_transition.run(1);
+    				if (!div0_transition) div0_transition = create_bidirectional_transition(div0, fade, {}, true);
+    				div0_transition.run(1);
     			});
 
     			add_render_callback(() => {
-    				if (!span1_transition) span1_transition = create_bidirectional_transition(span1, scale, {}, true);
-    				span1_transition.run(1);
+    				if (!div1_transition) div1_transition = create_bidirectional_transition(div1, blur, {}, true);
+    				div1_transition.run(1);
+    			});
+
+    			add_render_callback(() => {
+    				if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, {}, true);
+    				div2_transition.run(1);
+    			});
+
+    			add_render_callback(() => {
+    				if (!div3_transition) div3_transition = create_bidirectional_transition(div3, slide, {}, true);
+    				div3_transition.run(1);
+    			});
+
+    			add_render_callback(() => {
+    				if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, {}, true);
+    				div4_transition.run(1);
     			});
 
     			current = true;
     		},
     		o: function outro(local) {
-    			if (!span0_transition) span0_transition = create_bidirectional_transition(span0, fade, {}, false);
-    			span0_transition.run(0);
-    			if (!span1_transition) span1_transition = create_bidirectional_transition(span1, scale, {}, false);
-    			span1_transition.run(0);
+    			if (!div0_transition) div0_transition = create_bidirectional_transition(div0, fade, {}, false);
+    			div0_transition.run(0);
+    			if (!div1_transition) div1_transition = create_bidirectional_transition(div1, blur, {}, false);
+    			div1_transition.run(0);
+    			if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, {}, false);
+    			div2_transition.run(0);
+    			if (!div3_transition) div3_transition = create_bidirectional_transition(div3, slide, {}, false);
+    			div3_transition.run(0);
+    			if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, {}, false);
+    			div4_transition.run(0);
     			current = false;
     		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(span0);
-    			if (detaching && span0_transition) span0_transition.end();
+    			if (detaching) detach_dev(div0);
+    			if (detaching && div0_transition) div0_transition.end();
     			if (detaching) detach_dev(t1);
-    			if (detaching) detach_dev(span1);
-    			if (detaching && span1_transition) span1_transition.end();
+    			if (detaching) detach_dev(div1);
+    			if (detaching && div1_transition) div1_transition.end();
+    			if (detaching) detach_dev(t3);
+    			if (detaching) detach_dev(div2);
+    			if (detaching && div2_transition) div2_transition.end();
+    			if (detaching) detach_dev(t5);
+    			if (detaching) detach_dev(div3);
+    			if (detaching && div3_transition) div3_transition.end();
+    			if (detaching) detach_dev(t7);
+    			if (detaching) detach_dev(div4);
+    			if (detaching && div4_transition) div4_transition.end();
     		}
     	};
 
@@ -4545,12 +4640,12 @@ var app = (function () {
     		c: function create() {
     			div = element("div");
     			input = element("input");
-    			t = text(" Show  \n  ");
+    			t = text(" Show Transitions \n  ");
     			if (if_block) if_block.c();
     			attr_dev(input, "type", "checkbox");
-    			add_location(input, file$1, 7, 2, 133);
-    			attr_dev(div, "class", "animation-container svelte-1k43mf1");
-    			add_location(div, file$1, 6, 0, 97);
+    			add_location(input, file$1, 7, 2, 151);
+    			attr_dev(div, "class", "animation-container svelte-omsxf7");
+    			add_location(div, file$1, 6, 0, 115);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4637,7 +4732,7 @@ var app = (function () {
     		$$invalidate(0, animate);
     	}
 
-    	$$self.$capture_state = () => ({ fade, scale, animate });
+    	$$self.$capture_state = () => ({ fade, blur, fly, slide, scale, animate });
 
     	$$self.$inject_state = $$props => {
     		if ('animate' in $$props) $$invalidate(0, animate = $$props.animate);
@@ -4668,7 +4763,7 @@ var app = (function () {
     const file = "src/App.svelte";
 
     function add_css(target) {
-    	append_styles(target, "svelte-1plrz5d", "#container.svelte-1plrz5d.svelte-1plrz5d{height:90%;width:75%;padding:2% 2% 3% 3%;margin:0 auto;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-1plrz5d.svelte-1plrz5d{display:flex;flex-wrap:wrap;padding:3px}.columns.svelte-1plrz5d>.svelte-1plrz5d{flex-grow:1;flex-shrink:1;flex-basis:300px}.columns.svelte-1plrz5d .left-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.columns.svelte-1plrz5d .right-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.footer.svelte-1plrz5d.svelte-1plrz5d{margin:7px;font-size:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQXBwLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQXBwLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c3ZlbHRlOm9wdGlvbnMgYWNjZXNzb3JzPXt0cnVlfSAvPlxuXG48c2NyaXB0PlxuICBpbXBvcnQgeyBlbGFwc2VkIH0gZnJvbSAnLi9zdG9yZXMuanMnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBpbXBvcnQgSGVhZGxpbmUgZnJvbSAnLi9jb21wb25lbnRzL0hlYWRsaW5lLnN2ZWx0ZSdcbiAgaW1wb3J0IExpc3QgZnJvbSAnLi9jb21wb25lbnRzL0xpc3Quc3ZlbHRlJ1xuICBpbXBvcnQgVGFibGUgZnJvbSAnLi9jb21wb25lbnRzL1RhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsRGlhbG9nIGZyb20gJy4vY29tcG9uZW50cy9Nb2RhbERpYWxvZy5zdmVsdGUnXG4gIGltcG9ydCBNb2RhbEZvcm0gZnJvbSAnLi9jb21wb25lbnRzL01vZGFsRm9ybS5zdmVsdGUnXG4gIGltcG9ydCBVc2VySW5wdXQgZnJvbSAnLi9jb21wb25lbnRzL1VzZXJJbnB1dC5zdmVsdGUnXG4gIGltcG9ydCBSYWRpb0JveGVzIGZyb20gJy4vY29tcG9uZW50cy9SYWRpb0JveGVzLnN2ZWx0ZSdcbiAgaW1wb3J0IENvbnRlbnRlZGl0YWJsZSBmcm9tICcuL2NvbXBvbmVudHMvQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IFByb2ZpbGUgZnJvbSAnLi9jb21wb25lbnRzL1Byb2ZpbGUuc3ZlbHRlJ1xuICBpbXBvcnQgRXZlbnRMb2cgZnJvbSAnLi9jb21wb25lbnRzL0V2ZW50TG9nLnN2ZWx0ZSdcbiAgaW1wb3J0IEFuaW1hdGlvbiBmcm9tICcuL2NvbXBvbmVudHMvQW5pbWF0aW9uLnN2ZWx0ZSdcblxuICBleHBvcnQgbGV0IG1lc3NhZ2VcbiAgZXhwb3J0IGxldCBpdGVtSWRcbiAgZXhwb3J0IGxldCBsaXN0XG4gIGV4cG9ydCBsZXQgdGFibGVcbiAgZXhwb3J0IGxldCB1c2VySW5wdXRcbiAgZXhwb3J0IGxldCBzZWxlY3Rpb25zXG4gIGV4cG9ydCBsZXQgY3VycmVudEl0ZW1cbiAgZXhwb3J0IGxldCBtb2RhbERpYWxvZ1xuICBleHBvcnQgbGV0IHNob3dGb3JtTW9kYWxcbiAgZXhwb3J0IGxldCBzZWxlY3RlZCA9ICcnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgc2hvd0xvZ3MgPSB0cnVlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG5cbiAgLy8gZXZlbnQgaGFuZGxpbmdcbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuICBjb25zdCBsaXN0U2VsZWN0aW9uID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnbGlzdFNlbGVjdGlvbicsIGV2ZW50LmRldGFpbC5pdGVtKVxuICBjb25zdCBoYW5kbGVDbGlja2VkUm93ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlQ2xpY2tlZFJvdycsIGV2ZW50LmRldGFpbClcbiAgY29uc3Qgc2VuZEZvcm0gPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdzZW5kRm9ybScsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlRXZlbnQgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVFdmVudCcsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlVXNlckV2ZW50ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlVXNlckV2ZW50JywgZXZlbnQuZGV0YWlsKVxuPC9zY3JpcHQ+XG5cbjxkaXYgaWQ9XCJjb250YWluZXJcIj5cbiAgPGRpdj5cbiAgICA8SGVhZGxpbmUge21lc3NhZ2V9IHtpdGVtSWR9IC8+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiY29sdW1uc1wiPlxuICAgIDxkaXYgY2xhc3M9XCJsZWZ0LWNvbHVtblwiPlxuICAgICAgPExpc3Qge2xpc3R9IHtjdXJyZW50SXRlbX0gb246c2VsZWN0PXtsaXN0U2VsZWN0aW9ufSBvbjplZGl0IC8+XG5cbiAgICAgIDxVc2VySW5wdXQge3VzZXJJbnB1dH0gb246aW5wdXQgLz5cblxuICAgICAgPENvbnRlbnRlZGl0YWJsZSBjb250ZW50PVwiVGhpcyBjb250ZW50IGlzIGVkaXRhYmxlLlwiIG9uOmlucHV0IC8+XG5cbiAgICAgIDxBbmltYXRpb24gLz5cblxuICAgICAgPE1vZGFsRGlhbG9nIHsuLi5tb2RhbERpYWxvZ30gb246Y2xvc2UgLz5cblxuICAgICAgPE1vZGFsRm9ybVxuICAgICAgICBzaG93TW9kYWw9e3Nob3dGb3JtTW9kYWx9XG4gICAgICAgIHt2YWx1ZU5hbWV9XG4gICAgICAgIHt2YWx1ZVVybH1cbiAgICAgICAgb246c2VuZEZvcm09e3NlbmRGb3JtfVxuICAgICAgICBvbjpjbG9zZVxuICAgICAgLz5cbiAgICA8L2Rpdj5cbiAgICA8ZGl2IGNsYXNzPVwicmlnaHQtY29sdW1uXCI+XG4gICAgICA8VGFibGUge3NlbGVjdGVkfSBkYXRhPXt0YWJsZX0gb246Y2xpY2tlZFJvdz17aGFuZGxlQ2xpY2tlZFJvd30gLz5cblxuICAgICAgPFJhZGlvQm94ZXMge3NlbGVjdGlvbnN9IG9uOnNlbGVjdD17aGFuZGxlRXZlbnR9IC8+XG5cbiAgICAgIDxQcm9maWxlIC8+XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiZm9vdGVyXCI+XG4gICAgPGRpdj5cbiAgICAgIHsjaWYgJGVsYXBzZWR9XG4gICAgICAgIFRoZSB1c2VyIGlzIGluYWN0aXZlIGZvciB7JGVsYXBzZWR9XG4gICAgICAgIHskZWxhcHNlZCA9PT0gMSA/ICdzZWNvbmQnIDogJ3NlY29uZHMnfVxuICAgICAgezplbHNlfVxuICAgICAgICBUaGUgdXNlciBpcyBhY3RpdmVcbiAgICAgIHsvaWZ9XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8RXZlbnRMb2cge3Nob3dMb2dzfSB7bG9nc30gLz5cbjwvZGl2PlxuXG48c3ZlbHRlOndpbmRvd1xuICBvbjptb3VzZW1vdmU9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246Y2xpY2s9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246a2V5ZG93bj17aGFuZGxlVXNlckV2ZW50fVxuLz5cblxuPHN0eWxlPlxuICAjY29udGFpbmVyIHtcbiAgICBoZWlnaHQ6IDkwJTtcbiAgICB3aWR0aDogNzUlO1xuICAgIHBhZGRpbmc6IDIlIDIlIDMlIDMlO1xuICAgIG1hcmdpbjogMCBhdXRvO1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICB9XG4gIC5jb2x1bW5zIHtcbiAgICBkaXNwbGF5OiBmbGV4O1xuICAgIGZsZXgtd3JhcDogd3JhcDtcbiAgICBwYWRkaW5nOiAzcHg7XG4gIH1cbiAgLmNvbHVtbnMgPiAqIHtcbiAgICBmbGV4LWdyb3c6IDE7XG4gICAgZmxleC1zaHJpbms6IDE7XG4gICAgZmxleC1iYXNpczogMzAwcHg7XG4gIH1cbiAgLmNvbHVtbnMgLmxlZnQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuY29sdW1ucyAucmlnaHQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuZm9vdGVyIHtcbiAgICBtYXJnaW46IDdweDtcbiAgICBmb250LXNpemU6IDEwcHg7XG4gIH1cbjwvc3R5bGU+XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBOEZFLFVBQVUsOEJBQUMsQ0FBQyxBQUNWLE1BQU0sQ0FBRSxHQUFHLENBQ1gsS0FBSyxDQUFFLEdBQUcsQ0FDVixPQUFPLENBQUUsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUNwQixNQUFNLENBQUUsQ0FBQyxDQUFDLElBQUksQ0FDZCxNQUFNLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQ3RCLGFBQWEsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLEFBQ2hDLENBQUMsQUFDRCxRQUFRLDhCQUFDLENBQUMsQUFDUixPQUFPLENBQUUsSUFBSSxDQUNiLFNBQVMsQ0FBRSxJQUFJLENBQ2YsT0FBTyxDQUFFLEdBQUcsQUFDZCxDQUFDLEFBQ0QsdUJBQVEsQ0FBRyxlQUFFLENBQUMsQUFDWixTQUFTLENBQUUsQ0FBQyxDQUNaLFdBQVcsQ0FBRSxDQUFDLENBQ2QsVUFBVSxDQUFFLEtBQUssQUFDbkIsQ0FBQyxBQUNELHVCQUFRLENBQUMsWUFBWSxlQUFDLENBQUMsQUFDckIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELHVCQUFRLENBQUMsYUFBYSxlQUFDLENBQUMsQUFDdEIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELE9BQU8sOEJBQUMsQ0FBQyxBQUNQLE1BQU0sQ0FBRSxHQUFHLENBQ1gsU0FBUyxDQUFFLElBQUksQUFDakIsQ0FBQyJ9 */");
+    	append_styles(target, "svelte-1plrz5d", "#container.svelte-1plrz5d.svelte-1plrz5d{height:90%;width:75%;padding:2% 2% 3% 3%;margin:0 auto;border:1px solid #eee;border-radius:5px 5px 5px 5px}.columns.svelte-1plrz5d.svelte-1plrz5d{display:flex;flex-wrap:wrap;padding:3px}.columns.svelte-1plrz5d>.svelte-1plrz5d{flex-grow:1;flex-shrink:1;flex-basis:300px}.columns.svelte-1plrz5d .left-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.columns.svelte-1plrz5d .right-column.svelte-1plrz5d{padding:1% 1% 2% 2%}.footer.svelte-1plrz5d.svelte-1plrz5d{margin:7px;font-size:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQXBwLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQXBwLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c3ZlbHRlOm9wdGlvbnMgYWNjZXNzb3JzPXt0cnVlfSAvPlxuXG48c2NyaXB0PlxuICBpbXBvcnQgeyBlbGFwc2VkIH0gZnJvbSAnLi9zdG9yZXMuanMnXG4gIGltcG9ydCB7IGNyZWF0ZUV2ZW50RGlzcGF0Y2hlciB9IGZyb20gJ3N2ZWx0ZSdcblxuICBpbXBvcnQgSGVhZGxpbmUgZnJvbSAnLi9jb21wb25lbnRzL0hlYWRsaW5lLnN2ZWx0ZSdcbiAgaW1wb3J0IExpc3QgZnJvbSAnLi9jb21wb25lbnRzL0xpc3Quc3ZlbHRlJ1xuICBpbXBvcnQgVGFibGUgZnJvbSAnLi9jb21wb25lbnRzL1RhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IE1vZGFsRGlhbG9nIGZyb20gJy4vY29tcG9uZW50cy9Nb2RhbERpYWxvZy5zdmVsdGUnXG4gIGltcG9ydCBNb2RhbEZvcm0gZnJvbSAnLi9jb21wb25lbnRzL01vZGFsRm9ybS5zdmVsdGUnXG4gIGltcG9ydCBVc2VySW5wdXQgZnJvbSAnLi9jb21wb25lbnRzL1VzZXJJbnB1dC5zdmVsdGUnXG4gIGltcG9ydCBSYWRpb0JveGVzIGZyb20gJy4vY29tcG9uZW50cy9SYWRpb0JveGVzLnN2ZWx0ZSdcbiAgaW1wb3J0IENvbnRlbnRlZGl0YWJsZSBmcm9tICcuL2NvbXBvbmVudHMvQ29udGVudGVkaXRhYmxlLnN2ZWx0ZSdcbiAgaW1wb3J0IFByb2ZpbGUgZnJvbSAnLi9jb21wb25lbnRzL1Byb2ZpbGUuc3ZlbHRlJ1xuICBpbXBvcnQgRXZlbnRMb2cgZnJvbSAnLi9jb21wb25lbnRzL0V2ZW50TG9nLnN2ZWx0ZSdcbiAgaW1wb3J0IEFuaW1hdGlvbiBmcm9tICcuL2NvbXBvbmVudHMvQW5pbWF0aW9uLnN2ZWx0ZSdcblxuICBleHBvcnQgbGV0IG1lc3NhZ2VcbiAgZXhwb3J0IGxldCBpdGVtSWRcbiAgZXhwb3J0IGxldCBsaXN0XG4gIGV4cG9ydCBsZXQgdGFibGVcbiAgZXhwb3J0IGxldCB1c2VySW5wdXRcbiAgZXhwb3J0IGxldCBzZWxlY3Rpb25zXG4gIGV4cG9ydCBsZXQgY3VycmVudEl0ZW1cbiAgZXhwb3J0IGxldCBtb2RhbERpYWxvZ1xuICBleHBvcnQgbGV0IHNob3dGb3JtTW9kYWxcbiAgZXhwb3J0IGxldCBzZWxlY3RlZCA9ICcnXG4gIGV4cG9ydCBsZXQgdmFsdWVOYW1lID0gJydcbiAgZXhwb3J0IGxldCB2YWx1ZVVybCA9ICcnXG4gIGV4cG9ydCBsZXQgc2hvd0xvZ3MgPSB0cnVlXG4gIGV4cG9ydCBsZXQgbG9ncyA9ICcnXG5cbiAgLy8gZXZlbnQgaGFuZGxpbmdcbiAgY29uc3QgZGlzcGF0Y2ggPSBjcmVhdGVFdmVudERpc3BhdGNoZXIoKVxuICBjb25zdCBsaXN0U2VsZWN0aW9uID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnbGlzdFNlbGVjdGlvbicsIGV2ZW50LmRldGFpbC5pdGVtKVxuICBjb25zdCBoYW5kbGVDbGlja2VkUm93ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlQ2xpY2tlZFJvdycsIGV2ZW50LmRldGFpbClcbiAgY29uc3Qgc2VuZEZvcm0gPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdzZW5kRm9ybScsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlRXZlbnQgPSAoZXZlbnQpID0+IGRpc3BhdGNoKCdoYW5kbGVFdmVudCcsIGV2ZW50LmRldGFpbClcbiAgY29uc3QgaGFuZGxlVXNlckV2ZW50ID0gKGV2ZW50KSA9PiBkaXNwYXRjaCgnaGFuZGxlVXNlckV2ZW50JywgZXZlbnQuZGV0YWlsKVxuPC9zY3JpcHQ+XG5cbjxkaXYgaWQ9XCJjb250YWluZXJcIj5cbiAgPGRpdj5cbiAgICA8SGVhZGxpbmUge21lc3NhZ2V9IHtpdGVtSWR9IC8+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiY29sdW1uc1wiPlxuICAgIDxkaXYgY2xhc3M9XCJsZWZ0LWNvbHVtblwiPlxuICAgICAgPExpc3Qge2xpc3R9IHtjdXJyZW50SXRlbX0gb246c2VsZWN0PXtsaXN0U2VsZWN0aW9ufSBvbjplZGl0IC8+XG5cbiAgICAgIDxVc2VySW5wdXQge3VzZXJJbnB1dH0gb246aW5wdXQgLz5cblxuICAgICAgPENvbnRlbnRlZGl0YWJsZSBjb250ZW50PVwiVGhpcyBjb250ZW50IGlzIGVkaXRhYmxlLlwiIG9uOmlucHV0IC8+XG5cbiAgICAgIDxNb2RhbERpYWxvZyB7Li4ubW9kYWxEaWFsb2d9IG9uOmNsb3NlIC8+XG5cbiAgICAgIDxBbmltYXRpb24gLz5cblxuICAgICAgPE1vZGFsRm9ybVxuICAgICAgICBzaG93TW9kYWw9e3Nob3dGb3JtTW9kYWx9XG4gICAgICAgIHt2YWx1ZU5hbWV9XG4gICAgICAgIHt2YWx1ZVVybH1cbiAgICAgICAgb246c2VuZEZvcm09e3NlbmRGb3JtfVxuICAgICAgICBvbjpjbG9zZVxuICAgICAgLz5cbiAgICA8L2Rpdj5cbiAgICA8ZGl2IGNsYXNzPVwicmlnaHQtY29sdW1uXCI+XG4gICAgICA8VGFibGUge3NlbGVjdGVkfSBkYXRhPXt0YWJsZX0gb246Y2xpY2tlZFJvdz17aGFuZGxlQ2xpY2tlZFJvd30gLz5cblxuICAgICAgPFJhZGlvQm94ZXMge3NlbGVjdGlvbnN9IG9uOnNlbGVjdD17aGFuZGxlRXZlbnR9IC8+XG5cbiAgICAgIDxQcm9maWxlIC8+XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8ZGl2IGNsYXNzPVwiZm9vdGVyXCI+XG4gICAgPGRpdj5cbiAgICAgIHsjaWYgJGVsYXBzZWR9XG4gICAgICAgIFRoZSB1c2VyIGlzIGluYWN0aXZlIGZvciB7JGVsYXBzZWR9XG4gICAgICAgIHskZWxhcHNlZCA9PT0gMSA/ICdzZWNvbmQnIDogJ3NlY29uZHMnfVxuICAgICAgezplbHNlfVxuICAgICAgICBUaGUgdXNlciBpcyBhY3RpdmVcbiAgICAgIHsvaWZ9XG4gICAgPC9kaXY+XG4gIDwvZGl2PlxuICA8RXZlbnRMb2cge3Nob3dMb2dzfSB7bG9nc30gLz5cbjwvZGl2PlxuXG48c3ZlbHRlOndpbmRvd1xuICBvbjptb3VzZW1vdmU9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246Y2xpY2s9e2hhbmRsZVVzZXJFdmVudH1cbiAgb246a2V5ZG93bj17aGFuZGxlVXNlckV2ZW50fVxuLz5cblxuPHN0eWxlPlxuICAjY29udGFpbmVyIHtcbiAgICBoZWlnaHQ6IDkwJTtcbiAgICB3aWR0aDogNzUlO1xuICAgIHBhZGRpbmc6IDIlIDIlIDMlIDMlO1xuICAgIG1hcmdpbjogMCBhdXRvO1xuICAgIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7XG4gICAgYm9yZGVyLXJhZGl1czogNXB4IDVweCA1cHggNXB4O1xuICB9XG4gIC5jb2x1bW5zIHtcbiAgICBkaXNwbGF5OiBmbGV4O1xuICAgIGZsZXgtd3JhcDogd3JhcDtcbiAgICBwYWRkaW5nOiAzcHg7XG4gIH1cbiAgLmNvbHVtbnMgPiAqIHtcbiAgICBmbGV4LWdyb3c6IDE7XG4gICAgZmxleC1zaHJpbms6IDE7XG4gICAgZmxleC1iYXNpczogMzAwcHg7XG4gIH1cbiAgLmNvbHVtbnMgLmxlZnQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuY29sdW1ucyAucmlnaHQtY29sdW1uIHtcbiAgICBwYWRkaW5nOiAxJSAxJSAyJSAyJTtcbiAgfVxuICAuZm9vdGVyIHtcbiAgICBtYXJnaW46IDdweDtcbiAgICBmb250LXNpemU6IDEwcHg7XG4gIH1cbjwvc3R5bGU+XG4iXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBOEZFLFVBQVUsOEJBQUMsQ0FBQyxBQUNWLE1BQU0sQ0FBRSxHQUFHLENBQ1gsS0FBSyxDQUFFLEdBQUcsQ0FDVixPQUFPLENBQUUsRUFBRSxDQUFDLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUNwQixNQUFNLENBQUUsQ0FBQyxDQUFDLElBQUksQ0FDZCxNQUFNLENBQUUsR0FBRyxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQ3RCLGFBQWEsQ0FBRSxHQUFHLENBQUMsR0FBRyxDQUFDLEdBQUcsQ0FBQyxHQUFHLEFBQ2hDLENBQUMsQUFDRCxRQUFRLDhCQUFDLENBQUMsQUFDUixPQUFPLENBQUUsSUFBSSxDQUNiLFNBQVMsQ0FBRSxJQUFJLENBQ2YsT0FBTyxDQUFFLEdBQUcsQUFDZCxDQUFDLEFBQ0QsdUJBQVEsQ0FBRyxlQUFFLENBQUMsQUFDWixTQUFTLENBQUUsQ0FBQyxDQUNaLFdBQVcsQ0FBRSxDQUFDLENBQ2QsVUFBVSxDQUFFLEtBQUssQUFDbkIsQ0FBQyxBQUNELHVCQUFRLENBQUMsWUFBWSxlQUFDLENBQUMsQUFDckIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELHVCQUFRLENBQUMsYUFBYSxlQUFDLENBQUMsQUFDdEIsT0FBTyxDQUFFLEVBQUUsQ0FBQyxFQUFFLENBQUMsRUFBRSxDQUFDLEVBQUUsQUFDdEIsQ0FBQyxBQUNELE9BQU8sOEJBQUMsQ0FBQyxBQUNQLE1BQU0sQ0FBRSxHQUFHLENBQ1gsU0FBUyxDQUFFLElBQUksQUFDakIsQ0FBQyJ9 */");
     }
 
     // (80:6) {:else}
@@ -4756,9 +4851,9 @@ var app = (function () {
     	let t2;
     	let contenteditable;
     	let t3;
-    	let animation;
-    	let t4;
     	let modaldialog;
+    	let t4;
+    	let animation;
     	let t5;
     	let modalform;
     	let t6;
@@ -4809,7 +4904,6 @@ var app = (function () {
     		});
 
     	contenteditable.$on("input", /*input_handler_1*/ ctx[22]);
-    	animation = new Animation({ $$inline: true });
     	const modaldialog_spread_levels = [/*modalDialog*/ ctx[7]];
     	let modaldialog_props = {};
 
@@ -4819,6 +4913,7 @@ var app = (function () {
 
     	modaldialog = new ModalDialog({ props: modaldialog_props, $$inline: true });
     	modaldialog.$on("close", /*close_handler*/ ctx[23]);
+    	animation = new Animation({ $$inline: true });
 
     	modalform = new ModalForm({
     			props: {
@@ -4880,9 +4975,9 @@ var app = (function () {
     			t2 = space();
     			create_component(contenteditable.$$.fragment);
     			t3 = space();
-    			create_component(animation.$$.fragment);
-    			t4 = space();
     			create_component(modaldialog.$$.fragment);
+    			t4 = space();
+    			create_component(animation.$$.fragment);
     			t5 = space();
     			create_component(modalform.$$.fragment);
     			t6 = space();
@@ -4928,9 +5023,9 @@ var app = (function () {
     			append_dev(div1, t2);
     			mount_component(contenteditable, div1, null);
     			append_dev(div1, t3);
-    			mount_component(animation, div1, null);
-    			append_dev(div1, t4);
     			mount_component(modaldialog, div1, null);
+    			append_dev(div1, t4);
+    			mount_component(animation, div1, null);
     			append_dev(div1, t5);
     			mount_component(modalform, div1, null);
     			append_dev(div3, t6);
@@ -5012,8 +5107,8 @@ var app = (function () {
     			transition_in(list_1.$$.fragment, local);
     			transition_in(userinput.$$.fragment, local);
     			transition_in(contenteditable.$$.fragment, local);
-    			transition_in(animation.$$.fragment, local);
     			transition_in(modaldialog.$$.fragment, local);
+    			transition_in(animation.$$.fragment, local);
     			transition_in(modalform.$$.fragment, local);
     			transition_in(table_1.$$.fragment, local);
     			transition_in(radioboxes.$$.fragment, local);
@@ -5026,8 +5121,8 @@ var app = (function () {
     			transition_out(list_1.$$.fragment, local);
     			transition_out(userinput.$$.fragment, local);
     			transition_out(contenteditable.$$.fragment, local);
-    			transition_out(animation.$$.fragment, local);
     			transition_out(modaldialog.$$.fragment, local);
+    			transition_out(animation.$$.fragment, local);
     			transition_out(modalform.$$.fragment, local);
     			transition_out(table_1.$$.fragment, local);
     			transition_out(radioboxes.$$.fragment, local);
@@ -5041,8 +5136,8 @@ var app = (function () {
     			destroy_component(list_1);
     			destroy_component(userinput);
     			destroy_component(contenteditable);
-    			destroy_component(animation);
     			destroy_component(modaldialog);
+    			destroy_component(animation);
     			destroy_component(modalform);
     			destroy_component(table_1);
     			destroy_component(radioboxes);
