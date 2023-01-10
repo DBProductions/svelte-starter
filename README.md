@@ -57,8 +57,10 @@ It's only an example to use a store and display the inactive time of a user and 
 Navigate to [localhost:10001](http://localhost:10001).
 
 ## Cypress
+You can start the Cypress UI or run it headless on CLI.
 
     $ npm run start:cypress
+    $ npm run test:cypress
 
 ## Feedback
 Star this repo if you found it useful. Use the github issue tracker to give feedback on this repo.
