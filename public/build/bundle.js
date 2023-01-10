@@ -5649,24 +5649,30 @@ var app = (function () {
     };
 
     app.$on('listSelection', (event) => {
-      app.$set({ message: `Clicked item ${event.detail.name}` });
-      app.$set({ itemId: `Id: ${event.detail.id}` });
-      app.$set({ selected: event.detail.name });
+      app.$set({
+        message: `Clicked item ${event.detail.name}`,
+        itemId: `Id: ${event.detail.id}`,
+        selected: event.detail.name
+      });
       logEvent(event.detail);
     });
 
     app.$on('handleClickedRow', (event) => {
-      app.$set({ message: `Clicked item ${event.detail.name}` });
-      app.$set({ itemId: `Id: ${event.detail.id}` });
-      app.$set({ selected: event.detail.name });
-      app.$set({ currentItem: event.detail.id });
+      app.$set({
+        message: `Clicked item ${event.detail.name}`,
+        itemId: `Id: ${event.detail.id}`,
+        selected: event.detail.name,
+        currentItem: event.detail.id
+      });
       logEvent(event.detail);
     });
 
     app.$on('edit', (event) => {
-      app.$set({ valueName: event.detail.item.name });
-      app.$set({ valueUrl: event.detail.item.url });
-      app.$set({ showFormModal: true });
+      app.$set({
+        valueName: event.detail.item.name,
+        valueUrl: event.detail.item.url,
+        showFormModal: true
+      });
       logEvent(event.detail);
     });
 
