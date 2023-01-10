@@ -4547,7 +4547,7 @@ var app = (function () {
     const file$1 = "src/components/Animation.svelte";
 
     function add_css$1(target) {
-    	append_styles(target, "svelte-omsxf7", ".animation-container.svelte-omsxf7{margin:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQW5pbWF0aW9uLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQW5pbWF0aW9uLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBmYWRlLCBibHVyLCBmbHksIHNsaWRlLCBzY2FsZSB9IGZyb20gJ3N2ZWx0ZS90cmFuc2l0aW9uJ1xuICBcbiAgbGV0IGFuaW1hdGUgPSBmYWxzZVxuPC9zY3JpcHQ+XG4gIFxuPGRpdiBjbGFzcz1cImFuaW1hdGlvbi1jb250YWluZXJcIj5cbiAgPGlucHV0IHR5cGU9XCJjaGVja2JveFwiIGJpbmQ6Y2hlY2tlZD17YW5pbWF0ZX0gLz4gU2hvdyBUcmFuc2l0aW9ucyBcbiAgeyNpZiBhbmltYXRlfVxuICAgIDxkaXYgdHJhbnNpdGlvbjpmYWRlPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpmYWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpibHVyPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpibHVyLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpmbHk+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOmZseS48L2Rpdj5cbiAgICA8ZGl2IHRyYW5zaXRpb246c2xpZGU+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOnNsaWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpzY2FsZT5UaGlzIHRleHQgdXNlIHRyYW5zaXRpb246c2NhbGUuPC9kaXY+XG4gIHsvaWZ9XG48L2Rpdj5cbiAgXG48c3R5bGU+XG4uYW5pbWF0aW9uLWNvbnRhaW5lciB7XG4gIG1hcmdpbjogMTBweDtcbn1cbjwvc3R5bGU+Il0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWtCQSxvQkFBb0IsY0FBQyxDQUFDLEFBQ3BCLE1BQU0sQ0FBRSxJQUFJLEFBQ2QsQ0FBQyJ9 */");
+    	append_styles(target, "svelte-omsxf7", ".animation-container.svelte-omsxf7{margin:10px}\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiQW5pbWF0aW9uLnN2ZWx0ZSIsInNvdXJjZXMiOlsiQW5pbWF0aW9uLnN2ZWx0ZSJdLCJzb3VyY2VzQ29udGVudCI6WyI8c2NyaXB0PlxuICBpbXBvcnQgeyBmYWRlLCBibHVyLCBmbHksIHNsaWRlLCBzY2FsZSB9IGZyb20gJ3N2ZWx0ZS90cmFuc2l0aW9uJ1xuICBcbiAgbGV0IGFuaW1hdGUgPSBmYWxzZVxuPC9zY3JpcHQ+XG4gIFxuPGRpdiBjbGFzcz1cImFuaW1hdGlvbi1jb250YWluZXJcIj5cbiAgPGlucHV0IHR5cGU9XCJjaGVja2JveFwiIGJpbmQ6Y2hlY2tlZD17YW5pbWF0ZX0gLz4gU2hvdyBUcmFuc2l0aW9ucyBcbiAgeyNpZiBhbmltYXRlfVxuICAgIDxkaXYgdHJhbnNpdGlvbjpmYWRlPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpmYWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpibHVyPlRoaXMgdGV4dCB1c2UgdHJhbnNpdGlvbjpibHVyLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpmbHk9e3sgeDogMTAgfX0+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOmZseS48L2Rpdj5cbiAgICA8ZGl2IHRyYW5zaXRpb246c2xpZGU+VGhpcyB0ZXh0IHVzZSB0cmFuc2l0aW9uOnNsaWRlLjwvZGl2PlxuICAgIDxkaXYgdHJhbnNpdGlvbjpzY2FsZT17eyBzdGFydDogNSB9fT5UaGlzIHRleHQgdXNlIHRyYW5zaXRpb246c2NhbGUuPC9kaXY+XG4gIHsvaWZ9XG48L2Rpdj5cbiAgXG48c3R5bGU+XG4uYW5pbWF0aW9uLWNvbnRhaW5lciB7XG4gIG1hcmdpbjogMTBweDtcbn1cbjwvc3R5bGU+Il0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQWtCQSxvQkFBb0IsY0FBQyxDQUFDLEFBQ3BCLE1BQU0sQ0FBRSxJQUFJLEFBQ2QsQ0FBQyJ9 */");
     }
 
     // (9:2) {#if animate}
@@ -4587,8 +4587,8 @@ var app = (function () {
     			add_location(div0, file$1, 9, 4, 238);
     			add_location(div1, file$1, 10, 4, 300);
     			add_location(div2, file$1, 11, 4, 362);
-    			add_location(div3, file$1, 12, 4, 422);
-    			add_location(div4, file$1, 13, 4, 486);
+    			add_location(div3, file$1, 12, 4, 434);
+    			add_location(div4, file$1, 13, 4, 498);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, div0, anchor);
@@ -4616,7 +4616,7 @@ var app = (function () {
     			});
 
     			add_render_callback(() => {
-    				if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, {}, true);
+    				if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, { x: 10 }, true);
     				div2_transition.run(1);
     			});
 
@@ -4626,7 +4626,7 @@ var app = (function () {
     			});
 
     			add_render_callback(() => {
-    				if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, {}, true);
+    				if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, { start: 5 }, true);
     				div4_transition.run(1);
     			});
 
@@ -4637,11 +4637,11 @@ var app = (function () {
     			div0_transition.run(0);
     			if (!div1_transition) div1_transition = create_bidirectional_transition(div1, blur, {}, false);
     			div1_transition.run(0);
-    			if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, {}, false);
+    			if (!div2_transition) div2_transition = create_bidirectional_transition(div2, fly, { x: 10 }, false);
     			div2_transition.run(0);
     			if (!div3_transition) div3_transition = create_bidirectional_transition(div3, slide, {}, false);
     			div3_transition.run(0);
-    			if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, {}, false);
+    			if (!div4_transition) div4_transition = create_bidirectional_transition(div4, scale, { start: 5 }, false);
     			div4_transition.run(0);
     			current = false;
     		},

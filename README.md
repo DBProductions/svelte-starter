@@ -9,6 +9,8 @@ Works with Svelte v3.48.0 and NodeJS v16.17.1 (with npm@8.19.2).
 [Svelte Template](https://github.com/sveltejs/template)    
 [Awesome Svelte](https://github.com/flagello/awesome-sveltejs)    
 
+[svelte-devtools](https://github.com/sveltejs/svelte-devtools)
+
 This starter repository is only a simple example, the project template got adjusted!  
 No generator or guide how to use Svelte or how to organize your code.  
 
@@ -36,6 +38,10 @@ It's only an example to use a store and display the inactive time of a user and 
 ## Installation
 
     $ npm i
+
+## Check
+
+    $ npm run svelte-check
 
 ## Format code
 
