@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
+
+      - name: Cypress install
+        uses: cypress-io/github-action@v2
         with:
-          install-command: npm i --force
+          runTests: false
+      
       - name: Cypress run
         uses: cypress-io/github-action@v5
         with:
+          install: false
           build: npm run build
           start: npm run dev
           wait-on: 'http://localhost:10001'
