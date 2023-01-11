@@ -17,6 +17,7 @@ No generator or guide how to use Svelte or how to organize your code.
 Some basic components are defined and wrapped in a main component.  
 
     App
+        - Animation
         - Button
         - Headline
         - List
