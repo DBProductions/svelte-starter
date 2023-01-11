@@ -11,7 +11,7 @@ Works with Svelte v3.48.0 and NodeJS v16.17.1 (with npm@8.19.2).
 
 [svelte-devtools](https://github.com/sveltejs/svelte-devtools)
 
-This starter repository is only a simple example, the project template got adjusted!  
+This starter repository is only a simple `example`, the project template got adjusted!  
 No generator or guide how to use Svelte or how to organize your code.  
 
 Some basic components are defined and wrapped in a main component.  

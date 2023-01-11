@@ -166,15 +166,12 @@ var app = (function () {
     }
     function append_stylesheet(node, style) {
         append(node.head || node, style);
-        return style.sheet;
     }
     function insert(target, node, anchor) {
         target.insertBefore(node, anchor || null);
     }
     function detach(node) {
-        if (node.parentNode) {
-            node.parentNode.removeChild(node);
-        }
+        node.parentNode.removeChild(node);
     }
     function destroy_each(iterations, detaching) {
         for (let i = 0; i < iterations.length; i += 1) {
@@ -324,10 +321,11 @@ var app = (function () {
             if (active)
                 return;
             managed_styles.forEach(info => {
-                const { ownerNode } = info.stylesheet;
-                // there is no ownerNode if it runs on jsdom.
-                if (ownerNode)
-                    detach(ownerNode);
+                const { stylesheet } = info;
+                let i = stylesheet.cssRules.length;
+                while (i--)
+                    stylesheet.deleteRule(i);
+                info.rules = {};
             });
             managed_styles.clear();
         });
@@ -342,41 +340,12 @@ var app = (function () {
             throw new Error('Function called outside component initialization');
         return current_component;
     }
-    /**
-     * The `onMount` function schedules a callback to run as soon as the component has been mounted to the DOM.
-     * It must be called during the component's initialisation (but doesn't need to live *inside* the component;
-     * it can be called from an external module).
-     *
-     * `onMount` does not run inside a [server-side component](/docs#run-time-server-side-component-api).
-     *
-     * https://svelte.dev/docs#run-time-svelte-onmount
-     */
     function onMount(fn) {
         get_current_component().$$.on_mount.push(fn);
     }
-    /**
-     * Schedules a callback to run immediately before the component is unmounted.
-     *
-     * Out of `onMount`, `beforeUpdate`, `afterUpdate` and `onDestroy`, this is the
-     * only one that runs inside a server-side component.
-     *
-     * https://svelte.dev/docs#run-time-svelte-ondestroy
-     */
     function onDestroy(fn) {
         get_current_component().$$.on_destroy.push(fn);
     }
-    /**
-     * Creates an event dispatcher that can be used to dispatch [component events](/docs#template-syntax-component-directives-on-eventname).
-     * Event dispatchers are functions that can take two arguments: `name` and `detail`.
-     *
-     * Component events created with `createEventDispatcher` create a
-     * [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent).
-     * These events do not [bubble](https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Building_blocks/Events#Event_bubbling_and_capture).
-     * The `detail` argument corresponds to the [CustomEvent.detail](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent/detail)
-     * property and can contain any type of data.
-     *
-     * https://svelte.dev/docs#run-time-svelte-createeventdispatcher
-     */
     function createEventDispatcher() {
         const component = get_current_component();
         return (type, detail, { cancelable = false } = {}) => {
@@ -440,29 +409,15 @@ var app = (function () {
     const seen_callbacks = new Set();
     let flushidx = 0; // Do *not* move this inside the flush() function
     function flush() {
-        // Do not reenter flush while dirty components are updated, as this can
-        // result in an infinite loop. Instead, let the inner flush handle it.
-        // Reentrancy is ok afterwards for bindings etc.
-        if (flushidx !== 0) {
-            return;
-        }
         const saved_component = current_component;
         do {
             // first, call beforeUpdate functions
             // and update components
-            try {
-                while (flushidx < dirty_components.length) {
-                    const component = dirty_components[flushidx];
-                    flushidx++;
-                    set_current_component(component);
-                    update(component.$$);
-                }
-            }
-            catch (e) {
-                // reset dirty state to not end up in a deadlocked state and then rethrow
-                dirty_components.length = 0;
-                flushidx = 0;
-                throw e;
+            while (flushidx < dirty_components.length) {
+                const component = dirty_components[flushidx];
+                flushidx++;
+                set_current_component(component);
+                update(component.$$);
             }
             set_current_component(null);
             dirty_components.length = 0;
@@ -549,14 +504,10 @@ var app = (function () {
             });
             block.o(local);
         }
-        else if (callback) {
-            callback();
-        }
     }
     const null_transition = { duration: 0 };
     function create_bidirectional_transition(node, fn, params, intro) {
-        const options = { direction: 'both' };
-        let config = fn(node, params, options);
+        let config = fn(node, params);
         let t = intro ? 0 : 1;
         let running_program = null;
         let pending_program = null;
@@ -646,7 +597,7 @@ var app = (function () {
                 if (is_function(config)) {
                     wait().then(() => {
                         // @ts-ignore
-                        config = config(options);
+                        config = config();
                         go(b);
                     });
                 }
@@ -701,17 +652,14 @@ var app = (function () {
         block && block.c();
     }
     function mount_component(component, target, anchor, customElement) {
-        const { fragment, after_update } = component.$$;
+        const { fragment, on_mount, on_destroy, after_update } = component.$$;
         fragment && fragment.m(target, anchor);
         if (!customElement) {
             // onMount happens before the initial afterUpdate
             add_render_callback(() => {
-                const new_on_destroy = component.$$.on_mount.map(run).filter(is_function);
-                // if the component was destroyed immediately
-                // it will update the `$$.on_destroy` reference to `null`.
-                // the destructured on_destroy may still reference to the old array
-                if (component.$$.on_destroy) {
-                    component.$$.on_destroy.push(...new_on_destroy);
+                const new_on_destroy = on_mount.map(run).filter(is_function);
+                if (on_destroy) {
+                    on_destroy.push(...new_on_destroy);
                 }
                 else {
                     // Edge case - component was destroyed immediately,
@@ -747,7 +695,7 @@ var app = (function () {
         set_current_component(component);
         const $$ = component.$$ = {
             fragment: null,
-            ctx: [],
+            ctx: null,
             // state
             props,
             update: noop,
@@ -812,9 +760,6 @@ var app = (function () {
             this.$destroy = noop;
         }
         $on(type, callback) {
-            if (!is_function(callback)) {
-                return noop;
-            }
             const callbacks = (this.$$.callbacks[type] || (this.$$.callbacks[type] = []));
             callbacks.push(callback);
             return () => {
@@ -833,7 +778,7 @@ var app = (function () {
     }
 
     function dispatch_dev(type, detail) {
-        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.55.1' }, detail), { bubbles: true }));
+        document.dispatchEvent(custom_event(type, Object.assign({ version: '3.48.0' }, detail), { bubbles: true }));
     }
     function append_dev(target, node) {
         dispatch_dev('SvelteDOMInsert', { target, node });
@@ -1033,7 +978,7 @@ var app = (function () {
       Math.round(($time - start) / 1000)
     );
 
-    /* src/components/Headline.svelte generated by Svelte v3.55.1 */
+    /* src/components/Headline.svelte generated by Svelte v3.48.0 */
 
     const file$e = "src/components/Headline.svelte";
 
@@ -1152,7 +1097,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ListItem.svelte generated by Svelte v3.55.1 */
+    /* src/components/ListItem.svelte generated by Svelte v3.48.0 */
     const file$d = "src/components/ListItem.svelte";
 
     function add_css$c(target) {
@@ -1355,7 +1300,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/List.svelte generated by Svelte v3.55.1 */
+    /* src/components/List.svelte generated by Svelte v3.48.0 */
     const file$c = "src/components/List.svelte";
 
     function add_css$b(target) {
@@ -1608,7 +1553,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Table.svelte generated by Svelte v3.55.1 */
+    /* src/components/Table.svelte generated by Svelte v3.48.0 */
     const file$b = "src/components/Table.svelte";
 
     function add_css$a(target) {
@@ -2028,7 +1973,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Button.svelte generated by Svelte v3.55.1 */
+    /* src/components/Button.svelte generated by Svelte v3.48.0 */
 
     const file$a = "src/components/Button.svelte";
 
@@ -2090,7 +2035,7 @@ var app = (function () {
     				attr_dev(button, "id", /*id*/ ctx[1]);
     			}
 
-    			if (!current || dirty & /*send*/ 1) {
+    			if (dirty & /*send*/ 1) {
     				toggle_class(button, "sendBtn", /*send*/ ctx[0] === true);
     			}
     		},
@@ -2275,7 +2220,7 @@ var app = (function () {
         };
     }
 
-    /* src/components/Modal.svelte generated by Svelte v3.55.1 */
+    /* src/components/Modal.svelte generated by Svelte v3.48.0 */
     const file$9 = "src/components/Modal.svelte";
 
     function add_css$8(target) {
@@ -2747,7 +2692,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalDialog.svelte generated by Svelte v3.55.1 */
+    /* src/components/ModalDialog.svelte generated by Svelte v3.48.0 */
     const file$8 = "src/components/ModalDialog.svelte";
 
     // (23:0) <Button id="modalDialog" on:click={open}>
@@ -3114,7 +3059,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/ModalForm.svelte generated by Svelte v3.55.1 */
+    /* src/components/ModalForm.svelte generated by Svelte v3.48.0 */
     const file$7 = "src/components/ModalForm.svelte";
 
     function add_css$7(target) {
@@ -3559,7 +3504,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/UserInput.svelte generated by Svelte v3.55.1 */
+    /* src/components/UserInput.svelte generated by Svelte v3.48.0 */
     const file$6 = "src/components/UserInput.svelte";
 
     function add_css$6(target) {
@@ -3704,7 +3649,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/RadioBoxes.svelte generated by Svelte v3.55.1 */
+    /* src/components/RadioBoxes.svelte generated by Svelte v3.48.0 */
     const file$5 = "src/components/RadioBoxes.svelte";
 
     function add_css$5(target) {
@@ -4002,7 +3947,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Contenteditable.svelte generated by Svelte v3.55.1 */
+    /* src/components/Contenteditable.svelte generated by Svelte v3.48.0 */
     const file$4 = "src/components/Contenteditable.svelte";
 
     function add_css$4(target) {
@@ -4127,7 +4072,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Profile.svelte generated by Svelte v3.55.1 */
+    /* src/components/Profile.svelte generated by Svelte v3.48.0 */
     const file$3 = "src/components/Profile.svelte";
 
     function add_css$3(target) {
@@ -4388,7 +4333,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/EventLog.svelte generated by Svelte v3.55.1 */
+    /* src/components/EventLog.svelte generated by Svelte v3.48.0 */
 
     const file$2 = "src/components/EventLog.svelte";
 
@@ -4543,7 +4488,7 @@ var app = (function () {
     	}
     }
 
-    /* src/components/Animation.svelte generated by Svelte v3.55.1 */
+    /* src/components/Animation.svelte generated by Svelte v3.48.0 */
     const file$1 = "src/components/Animation.svelte";
 
     function add_css$1(target) {
@@ -4806,7 +4751,7 @@ var app = (function () {
     	}
     }
 
-    /* src/App.svelte generated by Svelte v3.55.1 */
+    /* src/App.svelte generated by Svelte v3.48.0 */
     const file = "src/App.svelte";
 
     function add_css(target) {
@@ -5237,44 +5182,6 @@ var app = (function () {
     	const handleEvent = event => dispatch('handleEvent', event.detail);
     	const handleUserEvent = event => dispatch('handleUserEvent', event.detail);
 
-    	$$self.$$.on_mount.push(function () {
-    		if (message === undefined && !('message' in $$props || $$self.$$.bound[$$self.$$.props['message']])) {
-    			console.warn("<App> was created without expected prop 'message'");
-    		}
-
-    		if (itemId === undefined && !('itemId' in $$props || $$self.$$.bound[$$self.$$.props['itemId']])) {
-    			console.warn("<App> was created without expected prop 'itemId'");
-    		}
-
-    		if (list === undefined && !('list' in $$props || $$self.$$.bound[$$self.$$.props['list']])) {
-    			console.warn("<App> was created without expected prop 'list'");
-    		}
-
-    		if (table === undefined && !('table' in $$props || $$self.$$.bound[$$self.$$.props['table']])) {
-    			console.warn("<App> was created without expected prop 'table'");
-    		}
-
-    		if (userInput === undefined && !('userInput' in $$props || $$self.$$.bound[$$self.$$.props['userInput']])) {
-    			console.warn("<App> was created without expected prop 'userInput'");
-    		}
-
-    		if (selections === undefined && !('selections' in $$props || $$self.$$.bound[$$self.$$.props['selections']])) {
-    			console.warn("<App> was created without expected prop 'selections'");
-    		}
-
-    		if (currentItem === undefined && !('currentItem' in $$props || $$self.$$.bound[$$self.$$.props['currentItem']])) {
-    			console.warn("<App> was created without expected prop 'currentItem'");
-    		}
-
-    		if (modalDialog === undefined && !('modalDialog' in $$props || $$self.$$.bound[$$self.$$.props['modalDialog']])) {
-    			console.warn("<App> was created without expected prop 'modalDialog'");
-    		}
-
-    		if (showFormModal === undefined && !('showFormModal' in $$props || $$self.$$.bound[$$self.$$.props['showFormModal']])) {
-    			console.warn("<App> was created without expected prop 'showFormModal'");
-    		}
-    	});
-
     	const writable_props = [
     		'message',
     		'itemId',
@@ -5455,6 +5362,45 @@ var app = (function () {
     			options,
     			id: create_fragment.name
     		});
+
+    		const { ctx } = this.$$;
+    		const props = options.props || {};
+
+    		if (/*message*/ ctx[0] === undefined && !('message' in props)) {
+    			console.warn("<App> was created without expected prop 'message'");
+    		}
+
+    		if (/*itemId*/ ctx[1] === undefined && !('itemId' in props)) {
+    			console.warn("<App> was created without expected prop 'itemId'");
+    		}
+
+    		if (/*list*/ ctx[2] === undefined && !('list' in props)) {
+    			console.warn("<App> was created without expected prop 'list'");
+    		}
+
+    		if (/*table*/ ctx[3] === undefined && !('table' in props)) {
+    			console.warn("<App> was created without expected prop 'table'");
+    		}
+
+    		if (/*userInput*/ ctx[4] === undefined && !('userInput' in props)) {
+    			console.warn("<App> was created without expected prop 'userInput'");
+    		}
+
+    		if (/*selections*/ ctx[5] === undefined && !('selections' in props)) {
+    			console.warn("<App> was created without expected prop 'selections'");
+    		}
+
+    		if (/*currentItem*/ ctx[6] === undefined && !('currentItem' in props)) {
+    			console.warn("<App> was created without expected prop 'currentItem'");
+    		}
+
+    		if (/*modalDialog*/ ctx[7] === undefined && !('modalDialog' in props)) {
+    			console.warn("<App> was created without expected prop 'modalDialog'");
+    		}
+
+    		if (/*showFormModal*/ ctx[8] === undefined && !('showFormModal' in props)) {
+    			console.warn("<App> was created without expected prop 'showFormModal'");
+    		}
     	}
 
     	get message() {
