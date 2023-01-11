@@ -21,6 +21,7 @@
       {#each selections as { selector, label }, i}
         <label
           class:active={current === selector}
+          on:keydown={setSelection(selector)}
           on:click={setSelection(selector)}
         >
           {label}

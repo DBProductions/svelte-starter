@@ -14,6 +14,7 @@
   import Contenteditable from './components/Contenteditable.svelte'
   import Profile from './components/Profile.svelte'
   import EventLog from './components/EventLog.svelte'
+  import Animation from './components/Animation.svelte'
 
   export let message
   export let itemId
@@ -53,6 +54,8 @@
 
       <ModalDialog {...modalDialog} on:close />
 
+      <Animation />
+
       <ModalForm
         showModal={showFormModal}
         {valueName}
@@ -77,7 +80,6 @@
       {:else}
         The user is active
       {/if}
-      
     </div>
   </div>
   <EventLog {showLogs} {logs} />
