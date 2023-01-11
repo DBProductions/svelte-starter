@@ -16,6 +16,7 @@ jobs:
         uses: cypress-io/github-action@v2
         with:
           runTests: false
+          install-command: npm i --force
       
       - name: Cypress run
         uses: cypress-io/github-action@v5
