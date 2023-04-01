@@ -7,7 +7,7 @@ Works with Svelte v3.55.1 and NodeJS v16.17.1 (with npm@8.19.2).
 
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
-[Awesome Svelte](https://github.com/flagello/awesome-sveltejs)    
+[Svelte Society](https://sveltesociety.dev/)    
 
 [svelte-devtools](https://github.com/sveltejs/svelte-devtools)
 
@@ -58,7 +58,7 @@ It's only an example to use a store and display the inactive time of a user and 
 Navigate to [localhost:10001](http://localhost:10001).
 
 ## Cypress
-You can start the Cypress UI or run it headless on CLI.
+You can start the Cypress UI or run it headless on CLI and the development server needs to run.
 
     $ npm run start:cypress
     $ npm run test:cypress
