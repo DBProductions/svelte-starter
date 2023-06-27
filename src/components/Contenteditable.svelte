@@ -13,6 +13,8 @@
   contenteditable="true"
   bind:textContent={content}
   on:keyup={keypress}
+  role="button"
+  tabindex="0"
 />
 
 <style>

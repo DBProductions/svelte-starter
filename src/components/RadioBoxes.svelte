@@ -19,20 +19,23 @@
   <div>
     <fieldset>
       {#each selections as { selector, label }, i}
-        <label
-          class:active={current === selector}
+        <span
           on:keydown={setSelection(selector)}
           on:click={setSelection(selector)}
+          role="button"
+          tabindex="0"
         >
-          {label}
-          <input
-            type="radio"
-            name="selection"
-            id={selector}
-            title={selector}
-            value={selector}
-          />
-        </label>
+          <label class:active={current === selector}>
+            {label}
+            <input
+              type="radio"
+              name="selection"
+              id={selector}
+              title={selector}
+              value={selector}
+            />
+          </label>
+        </span>
       {/each}
     </fieldset>
   </div>

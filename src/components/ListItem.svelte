@@ -12,9 +12,19 @@
 
 <li class:active={currentItem === item.id}>
   <div style="float:right;">
-    <buttton on:keydown={edit(item)} on:click={edit(item)}>Edit</buttton>
+    <buttton
+      on:keydown={edit(item)}
+      on:click={edit(item)}
+      role="button"
+      tabindex="0">Edit</buttton
+    >
   </div>
-  <div on:keydown={select(item)} on:click={select(item)}>
+  <div
+    on:keydown={select(item)}
+    on:click={select(item)}
+    role="button"
+    tabindex="0"
+  >
     {item.name} -
     <small>{item.url}</small>
   </div>
