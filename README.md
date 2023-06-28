@@ -14,6 +14,8 @@ Works with Svelte v4.0.0 and NodeJS v18.13.0 (with npm@8.19.3).
 This starter repository is only a simple `example`, the project template got adjusted!  
 No generator or guide how to use Svelte or how to organize your code.  
 
+[Demo Page](https://dbproductions.github.io/svelte-starter/)
+
 Some basic components are defined and wrapped in a main component.  
 
     App

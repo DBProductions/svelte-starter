@@ -1,10 +1,10 @@
-name: rmq-topology deployment
+name: svelte-starter deployment
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   
