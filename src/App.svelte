@@ -16,20 +16,15 @@
   import EventLog from './components/EventLog.svelte'
   import Animation from './components/Animation.svelte'
 
-  export let message
-  export let itemId
-  export let list
+  export let message, itemId
+  export let list, currentItem
   export let table
   export let userInput
   export let selections
-  export let currentItem
   export let modalDialog
-  export let showFormModal
+  export let showFormModal, valueName = '', valueUrl = '' 
   export let selected = ''
-  export let valueName = ''
-  export let valueUrl = ''
-  export let showLogs = true
-  export let logs = ''
+  export let showLogs = true, logs = ''
 
   // event handling
   const dispatch = createEventDispatcher()
