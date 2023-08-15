@@ -21,4 +21,4 @@ export const elapsed = derived(time, ($time) =>
 )
 
 // simple counter
-export const count = writable(0);
+export const count = writable(0)

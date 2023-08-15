@@ -22,9 +22,12 @@
   export let userInput
   export let selections
   export let modalDialog
-  export let showFormModal, valueName = '', valueUrl = '' 
+  export let showFormModal,
+    valueName = '',
+    valueUrl = ''
   export let selected = ''
-  export let showLogs = true, logs = ''
+  export let showLogs = true,
+    logs = ''
 
   // event handling
   const dispatch = createEventDispatcher()
