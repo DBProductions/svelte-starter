@@ -8,6 +8,7 @@ export const appProps = {
     { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
     { id: 3, name: 'Cypress', url: 'https://cypress.io/' },
     { id: 4, name: 'Prettier', url: 'https://prettier.io/' },
+    { id: 5, name: 'Vitest', url: 'https://vitest.dev/' },
   ],
   table: {
     header: [
@@ -20,6 +21,7 @@ export const appProps = {
       { id: 2, name: 'Rollup', url: 'https://rollupjs.org/' },
       { id: 3, name: 'Cypress', url: 'https://cypress.io/' },
       { id: 4, name: 'Prettier', url: 'https://prettier.io/' },
+      { id: 5, name: 'Vitest', url: 'https://vitest.dev/' },
     ],
   },
   showFormModal: false,

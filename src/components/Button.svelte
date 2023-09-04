@@ -4,7 +4,7 @@
 </script>
 
 <button {id} class:sendBtn={send === true} on:click>
-  <slot />
+  <slot>Button</slot>
 </button>
 
 <style>

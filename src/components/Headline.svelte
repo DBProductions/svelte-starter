@@ -5,7 +5,9 @@
 
 <h1>
   {message}
-  <small>{itemId}</small>
+  {#if itemId}
+    <small>{itemId}</small>
+  {/if}
 </h1>
 
 <style>
