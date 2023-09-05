@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte'
 
-  export let selections = {}
+  export let selections = []
 
   const dispatch = createEventDispatcher()
   let current = ''

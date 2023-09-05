@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte'
 
-  export let item = { id: 0, name: '' }
+  export let item = { id: 0, name: '', url: '' }
   export let currentItem = 0
 
   const dispatch = createEventDispatcher()

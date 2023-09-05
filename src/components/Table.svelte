@@ -1,7 +1,10 @@
 <script>
   import { createEventDispatcher } from 'svelte'
 
-  export let data = ''
+  export let data = {
+    header: [],
+    entries: [],
+  }
   export let selected = ''
 
   const dispatch = createEventDispatcher()
