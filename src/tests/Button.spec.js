@@ -15,7 +15,17 @@ describe('Button Component', () => {
     const button = getByRole('button')
     await user.click(button)
 
+    expect(button.id).toBe('btn')
     expect(button.innerHTML).toBe('Button')
     expect(mock).toHaveBeenCalled()
+  })
+
+  test('should render the component', async () => {
+    const { getByRole, component } = render(Button, { send: true, id: 'myBtn' })
+
+    const button = getByRole('button')
+
+    expect(button.id).toBe('myBtn')
+    expect(button.innerHTML).toBe('Button')
   })
 })
