@@ -18,9 +18,9 @@ export default {
   plugins: [
     svelte({
       emitCss: false,
-      css: true,
       compilerOptions: {
         dev: !production,
+        css: 'injected'
       },
     }),
     resolve({
