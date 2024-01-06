@@ -45,8 +45,8 @@ jobs:
         uses: cypress-io/github-action@v5
         with:
           install: false
-          build: npm run test:cypress
-          start: npm run dev
+          build: npm run dev
+          start: npm run test:cypress
           wait-on: 'http://localhost:10001'
   deploy:
     runs-on: ubuntu-latest
