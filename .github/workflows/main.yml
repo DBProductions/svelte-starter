@@ -19,14 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-      - uses: actions/checkout@v3
+        uses: actions/checkout@v3
       - name: Setup Bun
-      - uses: oven-sh/setup-bun@v1
-      - name: Cypress install
-        uses: cypress-io/github-action@v2
-        with:
-          runTests: false
-          install-command: bun i
+        uses: oven-sh/setup-bun@v1
       - run: bun i
       - run: bun run build
   build:
