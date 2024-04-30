@@ -381,10 +381,8 @@ var app = (function () {
 	/**
 	 * @returns {void} */
 	function set_style(node, key, value, important) {
-		if (value == null) {
-			node.style.removeProperty(key);
-		} else {
-			node.style.setProperty(key, value, important ? 'important' : '');
+		{
+			node.style.setProperty(key, value, '');
 		}
 	}
 
