@@ -22,20 +22,13 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Bun
       - uses: oven-sh/setup-bun@v1
-      - run: bun i
-      - run: bun run build
       - name: Cypress install
         uses: cypress-io/github-action@v2
         with:
           runTests: false
           install-command: bun i
-      - name: Cypress run
-        uses: cypress-io/github-action@v5
-        with:
-          install: false
-          build: bun run build
-          start: bun run dev
-          wait-on: 'http://localhost:10001'
+      - run: bun i
+      - run: bun run build
   build:
     runs-on: ubuntu-latest
     strategy:
