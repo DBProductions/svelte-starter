@@ -29,6 +29,13 @@ jobs:
           install-command: bun i
       - run: bun i
       - run: bun run build
+      - name: Cypress run
+        uses: cypress-io/github-action@v5
+        with:
+          install: false
+          build: bun run build
+          start: npm run dev
+          wait-on: 'http://localhost:10001'
   build:
     runs-on: ubuntu-latest
     strategy:
