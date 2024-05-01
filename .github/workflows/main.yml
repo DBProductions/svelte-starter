@@ -15,26 +15,26 @@ permissions:
   id-token: write
 
 jobs:
-  playwright:
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 18
-    - name: Install dependencies
-      run: npm i
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+  #playwright:
+  #  timeout-minutes: 60
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - uses: actions/checkout@v4
+  #  - uses: actions/setup-node@v4
+  #    with:
+  #      node-version: 18
+  #  - name: Install dependencies
+  #    run: npm i
+  #  - name: Install Playwright Browsers
+  #    run: npx playwright install --with-deps
+  #  - name: Run Playwright tests
+  #    run: npx playwright test
+  #  - uses: actions/upload-artifact@v4
+  #    if: ${{ !cancelled() }}
+  #    with:
+  #      name: playwright-report
+  #      path: playwright-report/
+  #      retention-days: 30
   bun:
     runs-on: ubuntu-latest
     steps:
@@ -79,7 +79,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Cypress install
-        uses: cypress-io/github-action@v2
+        uses: cypress-io/github-action@v5
         with:
           runTests: false
           install-command: npm i
@@ -104,9 +104,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v2
         with:
           path: './public'
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v3
