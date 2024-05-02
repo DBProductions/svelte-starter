@@ -72,7 +72,7 @@ jobs:
           wait-on: 'http://localhost:10001'
   deploy:
     runs-on: ubuntu-latest
-    needs: [build, cypress-run]
+    needs: [bun, build, cypress-run]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
