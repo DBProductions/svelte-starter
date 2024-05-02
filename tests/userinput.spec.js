@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('User Input Component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:10001')
+        await page.goto('https://dbproductions.github.io/svelte-starter/')
     })
     test('User input', async ({ page }) => {
         await expect(page.locator('div.user-input > input')).toHaveValue('')

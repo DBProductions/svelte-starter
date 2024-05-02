@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Modal Component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:10001')
+        await page.goto('https://dbproductions.github.io/svelte-starter/')
     })
     test.skip('Open and close modal dialog', async ({ page }) => {
         page.locator('#modalDialog').click()

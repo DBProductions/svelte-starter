@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Radio Boxes Component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:10001')
+        await page.goto('https://dbproductions.github.io/svelte-starter/')
     })
     test('Click radio boxes', async ({ page }) => {
         page.locator('#A').click()

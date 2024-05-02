@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Content Editable Component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('http://localhost:10001')
+        await page.goto('https://dbproductions.github.io/svelte-starter/')
     })
     test.skip('Content editable', async ({ page }) => {
         page.locator('div.contentBox').click()
