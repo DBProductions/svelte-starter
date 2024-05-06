@@ -5,16 +5,21 @@ test.describe('Modal Component', () => {
         await page.goto('https://dbproductions.github.io/svelte-starter/')
     })
     test.skip('Open and close modal dialog', async ({ page }) => {
-        page.locator('#modalDialog').click()
+        await expect(page.locator('#modalForm')).toBeHidden()
+        page.locator('#modalDialogBtn').click()
 
-        //await expect(page.locator("text=modal title")).toBeVisible()
+        await expect(page.locator('#modalDialog')).toBeVisible()
 
         page.locator('#modalCloseBtn').click()
 
-        //await expect(page.locator("text=modal title")).toBeHidden()
+        await expect(page.locator('#modalForm')).toBeHidden()
 
-        page.locator('#modalDialog').click()
+        page.locator('#modalDialogBtn').click()
+
+        await expect(page.locator('#modalForm')).toBeVisible()
 
         page.locator('div.modal-background').click()
+
+        await expect(page.locator('#modalForm')).toBeHidden()
     })
 })

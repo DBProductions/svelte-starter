@@ -27,7 +27,7 @@
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "@testing-library/svelte": "^5.1.0",
     "@testing-library/user-event": "^14.5.2",
-    "@types/node": "^20.12.8",
+    "@types/node": "^20.12.10",
     "@vitest/coverage-v8": "^1.6.0",
     "cypress": "^13.8.1",
     "jest": "^29.7.0",

@@ -20,7 +20,7 @@
   }
 </script>
 
-<Button id="modalDialog" on:click={open}>{btnText}</Button>
+<Button id="modalDialogBtn" on:click={open}>{btnText}</Button>
 
 {#if showModal}
   <Modal modalId="modalDialog" on:close={close}>
