@@ -1,9 +1,9 @@
 # svelte-starter  
 
 Starter repository for the cybernetically enhanced web apps.  
-Works with Svelte v4.2.15 and NodeJS v21.5.0 (with npm@10.2.4) or Bun v1.1.4.  
+Works with Svelte v4.2.17 and NodeJS v21.5.0 (with npm@10.2.4) or Bun v1.1.4.  
 [Prettier](https://prettier.io/) for code formatting, [Vitest](https://vitest.dev/) and [Cypress](https://www.cypress.io/) for unit and end-to-end testing.  
-[Rollup](https://rollupjs.org/) as module bundler.  
+[Rollup](https://rollupjs.org/) as module bundler. [Playwright](https://playwright.dev/) test are additional included.  
 
 [Svelte Tutorial](https://svelte.dev/tutorial/basics)  
 [Svelte Template](https://github.com/sveltejs/template)    
@@ -43,18 +43,27 @@ It's only an example to use a store and display the inactive time of a user and 
 
     $ npm i
 
+    $ bun i
+
 ## Check
 
     $ npm run svelte-check
+
+    $ bun run svelte-check
 
 ## Format code
 
     $ npm run format
 
+    $ bun run format
+
 ## Run or build
 
     $ npm run dev
     $ npm run build
+
+    $ bun run dev
+    $ bun run build
 
 ## Browse
 
@@ -65,6 +74,13 @@ You can start the Cypress UI or run it headless on CLI and the development serve
 
     $ npm run start:cypress
     $ npm run test:cypress
+
+    $ bun run start:cypress
+    $ bun run test:cypress
+
+## Playwright
+
+    $ npx playwright test
 
 ## Feedback
 Star this repo if you found it useful. Use the github issue tracker to give feedback on this repo.
